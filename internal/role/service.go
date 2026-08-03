@@ -1,7 +1,7 @@
 package role
 
 type RoleService struct {
-	Repo RoleRepository
+	Repo *RoleRepository
 }
 
 func (s *RoleService) List(id, siteID *int64) ([]Role, error) {

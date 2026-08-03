@@ -6,10 +6,12 @@ import (
 
 	"christ-api/internal/auth"
 	"christ-api/internal/middleware"
+	"christ-api/internal/role"
 	"christ-api/pkg/database"
 	"christ-api/routes"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/joho/godotenv"
 )
 
@@ -30,9 +32,14 @@ func main() {
 
 	// initialize services that need DB
 	auth.InitService(&auth.AuthRepository{DB: database.DB})
+	role.InitService(&role.RoleRepository{DB: database.DB})
 
 	app := fiber.New()
+	app.Use(cors.New())
 	app.Use(middleware.CustomLogger)
+
+	// Serve static files from docs directory
+	app.Static("/docs", "./docs")
 
 	routes.Setup(app)
 

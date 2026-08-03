@@ -26,14 +26,20 @@ func Secret() []byte {
 	return loadSecret()
 }
 
-func GenerateToken(userID int) (string, error) {
+func GenerateToken(userID int, roleID *int64) (string, error) {
 	if len(loadSecret()) == 0 {
 		return "", errors.New("JWT_SECRET is not configured")
 	}
 
+	now := time.Now().Unix()
 	claims := jwt.MapClaims{
 		"user_id": userID,
+		"iat":     now,
 		"exp":     time.Now().Add(time.Hour * 24).Unix(),
+	}
+
+	if roleID != nil {
+		claims["role_id"] = *roleID
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
