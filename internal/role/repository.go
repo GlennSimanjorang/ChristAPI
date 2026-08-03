@@ -20,11 +20,11 @@ func (r *RoleRepository) Get(id, siteID *int64) ([]Role, error) {
 	// kalau semisal ga ngasih request id maka ambil semua role yang ada di database
 	if id != nil {
 		rows, err = r.DB.Query(`SELECT id, name, code, description, site_id FROM roles WHERE id = $1`, *id)
-	
-	// nah kalau ngasih request site_id maka ambil semua role yang ada di database berdasarkan site_id
+
+		// nah kalau ngasih request site_id maka ambil semua role yang ada di database berdasarkan site_id
 	} else if siteID != nil {
 		rows, err = r.DB.Query(`SELECT id, name, code, description, site_id FROM roles WHERE site_id = $1`, *siteID)
-	// kalau ga ngasih request id dan site_id maka ambil semua role yang ada di database
+		// kalau ga ngasih request id dan site_id maka ambil semua role yang ada di database
 	} else {
 		rows, err = r.DB.Query(`SELECT id, name, code, description, site_id FROM roles`)
 	}
@@ -39,14 +39,14 @@ func (r *RoleRepository) Get(id, siteID *int64) ([]Role, error) {
 		var desc sql.NullString
 		var siteID sql.NullInt64
 		if err := rows.Scan(
-			&role.ID, 
-			&role.Name, 
-			&role.Code, 
-			&desc, 
+			&role.ID,
+			&role.Name,
+			&role.Code,
+			&desc,
 			&siteID); err != nil {
 			return nil, err
 		}
-		
+
 		if desc.Valid {
 			v := desc.String
 			role.Description = &v

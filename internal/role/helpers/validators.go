@@ -25,4 +25,3 @@ func ValidateUpdateRoleRequest(req *requests.UpdateRoleRequest) error {
 	}
 	return nil
 }
-

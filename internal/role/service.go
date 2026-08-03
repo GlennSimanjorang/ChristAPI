@@ -27,4 +27,3 @@ func (s *RoleService) HasPermission(roleID int64, requiredCode string) (bool, er
 	}
 	return role.Code == requiredCode, nil
 }
-
