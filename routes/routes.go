@@ -33,10 +33,11 @@ func Setup(app *fiber.App) {
 
 	protected.Post("/logout", auth.Logout)
 
-	// admin approvals
-	protected.Get("/admin/approvals", auth.GetPendingApprovals)
-	protected.Post("/admin/approvals/:id/approve", auth.ApproveUser)
-	protected.Post("/admin/approvals/:id/reject", auth.RejectUser)
+	// admin approvals (admin only)
+	adminRoutes := protected.Group("/admin", middleware.AdminOnly)
+	adminRoutes.Get("/approvals", auth.GetPendingApprovals)
+	adminRoutes.Post("/approvals/:id/approve", auth.ApproveUser)
+	adminRoutes.Post("/approvals/:id/reject", auth.RejectUser)
 
 	// roles
 	protected.Get("/roles", role.ListRoles)
