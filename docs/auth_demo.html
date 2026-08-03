@@ -130,9 +130,15 @@
     <div class="card">
         <h2>Active JWT Token / Session</h2>
         <div id="token-display" class="token-info">No token stored. Login dulu.</div>
-        <p>
-            <button class="secondary" onclick="clearToken()">Clear Token</button>
+        <div id="user-info" style="background-color: #ecf0f1; padding: 10px; border-radius: 4px; font-size: 12px; margin-top: 10px; display: none;">
+            <strong>Logged in as:</strong> <span id="user-email"></span><br>
+            <strong>Role:</strong> <span id="user-role"></span><br>
+            <strong>Points:</strong> <span id="user-points"></span>
+        </div>
+        <p style="margin-top: 15px;">
+            <button class="secondary" onclick="clearToken()">Clear Token (Manual)</button>
             <button onclick="testProfile()">Test Protected API (/api/profile)</button>
+            <button onclick="doLogout()" id="logout-btn" style="display: none; background-color: #e74c3c;" onmouseover="this.style.backgroundColor='#c0392b'" onmouseout="this.style.backgroundColor='#e74c3c'">Logout</button>
         </p>
         <div id="profile-log" class="log-box">Response will appear here...</div>
     </div>
@@ -213,6 +219,21 @@
         </div>
     </div>
 
+    <!-- Test Scenarios -->
+    <div class="card full-width">
+        <h2>Test Scenarios & Edge Cases</h2>
+        <p>Testing berbagai skenario untuk memastikan auth flow berjalan dengan benar.</p>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+            <button onclick="testInvalidToken()" class="secondary">Test: Invalid Token Format</button>
+            <button onclick="testExpiredToken()" class="secondary">Test: Token After Logout</button>
+            <button onclick="testNoToken()" class="secondary">Test: No Token</button>
+            <button onclick="testLoginLogoutCycle()" style="background-color: #9b59b6;">Login → Logout → Try Login</button>
+            <button onclick="testMultipleLogouts()" style="background-color: #16a085;">Multiple Logout Attempts</button>
+            <button onclick="testTokenInfo()" class="secondary">Decode Token Info (iat/exp)</button>
+        </div>
+        <div id="test-log" class="log-box" style="margin-top: 15px;">Test results will appear here...</div>
+    </div>
+
     <!-- Output Logs -->
     <div class="card">
         <h2>System Logs / HTTP Responses</h2>
@@ -261,6 +282,11 @@
                     jwtToken = result.data.token;
                     localStorage.setItem("jwt_token", jwtToken);
                     updateTokenDisplay();
+                    if (result.data.user) {
+                        document.getElementById("user-email").innerText = result.data.user.email || result.data.user.name;
+                        document.getElementById("user-role").innerText = result.data.user.role || "User";
+                        document.getElementById("user-points").innerText = result.data.user.points || "0";
+                    }
                     log(`✅ Login sukses sebagai ${result.data.user?.email}`);
                 } else {
                     alert("Login gagal: " + result.message);
@@ -268,14 +294,81 @@
             } catch (e) { log("Error Login: " + e.toString()); }
         }
 
+        async function doLogout() {
+            if (!jwtToken) {
+                alert("Tidak ada token aktif!");
+                return;
+            }
+
+            try {
+                log("Logging out...");
+                const res = await fetch(`${API_URL}/logout`, {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${jwtToken}`,
+                        "Content-Type": "application/json"
+                    }
+                });
+                const result = await res.json();
+                log("Logout Response", result);
+
+                if (result.success) {
+                    log("✅ Logout berhasil! Token telah di-invalidate.");
+                    clearToken();
+
+                    // Test: coba pakai token lama
+                    setTimeout(() => {
+                        log("🧪 Testing: Mencoba pakai token lama (seharusnya rejected)...");
+                        testProfileWithOldToken();
+                    }, 1000);
+                } else {
+                    alert("Logout gagal: " + result.message);
+                }
+            } catch (e) {
+                log("Error Logout: " + e.toString());
+            }
+        }
+
+        async function testProfileWithOldToken() {
+            // Simpan token lama
+            const oldToken = localStorage.getItem("jwt_token_before_logout");
+            if (!oldToken) {
+                log("⚠️ No saved old token to test with");
+                return;
+            }
+
+            try {
+                const profileLog = document.getElementById("profile-log");
+                profileLog.innerText = "Testing /api/profile dengan token lama...";
+                const response = await fetch(`${API_URL}/profile`, {
+                    method: "GET",
+                    headers: {
+                        "Authorization": `Bearer ${oldToken}`
+                    }
+                });
+                const result = await response.json();
+                profileLog.innerText = JSON.stringify(result, null, 2);
+                log("🧪 Old Token Test Result: " + (response.status === 401 ? "✅ Rejected (Correct!)" : "❌ Accepted (Wrong!)"), result);
+            } catch (error) {
+                log("Error testing old token: " + error.toString());
+            }
+        }
+
         function updateTokenDisplay() {
             const display = document.getElementById("token-display");
+            const userInfo = document.getElementById("user-info");
+            const logoutBtn = document.getElementById("logout-btn");
+
             if (jwtToken) {
                 display.innerText = "Bearer " + jwtToken;
                 display.style.color = "#27ae60";
+                logoutBtn.style.display = "inline-block";
+                userInfo.style.display = "block";
             } else {
                 display.innerText = "No token stored. Register/Login to get a token.";
                 display.style.color = "#7f8c8d";
+                logoutBtn.style.display = "none";
+                userInfo.style.display = "none";
             }
         }
 
@@ -532,6 +625,204 @@
                 profileLog.innerText = JSON.stringify(result, null, 2);
             } catch (error) {
                 profileLog.innerText = "Error fetching profile: " + error.toString();
+            }
+        }
+
+        // Test Scenarios
+        function testInvalidToken() {
+            const testLog = document.getElementById("test-log");
+            testLog.innerText = "Testing with invalid token format...\n";
+
+            const invalidToken = "this.is.not.valid.jwt";
+            testLog.innerText += `Token: ${invalidToken}\n`;
+            testLog.innerText += "Expected: 401 Invalid token\n\n";
+
+            fetch(`${API_URL}/profile`, {
+                method: "GET",
+                headers: {
+                    "Authorization": `Bearer ${invalidToken}`
+                }
+            })
+            .then(r => r.json())
+            .then(result => {
+                testLog.innerText += `Response: ${JSON.stringify(result, null, 2)}`;
+                log("🧪 Invalid Token Test Result", result);
+            })
+            .catch(e => {
+                testLog.innerText += `Error: ${e}`;
+            });
+        }
+
+        function testExpiredToken() {
+            const testLog = document.getElementById("test-log");
+            testLog.innerText = "Testing token after logout...\n";
+            testLog.innerText += "1. Login\n2. Logout\n3. Try use old token (should be rejected)\n\n";
+            testLog.innerText += "This test requires running login & logout first.\n";
+            testLog.innerText += "Then call testProfileWithOldToken()";
+        }
+
+        function testNoToken() {
+            const testLog = document.getElementById("test-log");
+            testLog.innerText = "Testing without token...\n";
+            testLog.innerText += "Expected: 401 missing token\n\n";
+
+            fetch(`${API_URL}/profile`, {
+                method: "GET",
+                headers: {}
+            })
+            .then(r => r.json())
+            .then(result => {
+                testLog.innerText += `Response: ${JSON.stringify(result, null, 2)}`;
+                log("🧪 No Token Test Result", result);
+            })
+            .catch(e => {
+                testLog.innerText += `Error: ${e}`;
+            });
+        }
+
+        async function testLoginLogoutCycle() {
+            const testLog = document.getElementById("test-log");
+            testLog.innerText = "Testing Login → Logout → Login cycle...\n\n";
+
+            const email = "test@example.com";
+            const password = "password123";
+
+            try {
+                // Step 1: Try login (may fail if user doesn't exist)
+                testLog.innerText += "[1] Attempting login...\n";
+                const loginRes = await fetch(`${API_URL}/login`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email, password })
+                });
+                const loginResult = await loginRes.json();
+
+                if (!loginResult.success) {
+                    testLog.innerText += `Login failed (expected if user doesn't exist): ${loginResult.message}\n`;
+                    testLog.innerText += "\nUse a valid email/password to test this flow.\n";
+                    return;
+                }
+
+                testLog.innerText += `✅ Login success\n`;
+                const token = loginResult.data.token;
+
+                // Step 2: Logout
+                testLog.innerText += "[2] Calling logout...\n";
+                const logoutRes = await fetch(`${API_URL}/logout`, {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${token}`,
+                        "Content-Type": "application/json"
+                    }
+                });
+                const logoutResult = await logoutRes.json();
+                testLog.innerText += `✅ Logout response: ${logoutResult.message}\n`;
+
+                // Step 3: Try use old token (should fail)
+                testLog.innerText += "[3] Trying to use old token (should be rejected)...\n";
+                const testRes = await fetch(`${API_URL}/profile`, {
+                    method: "GET",
+                    headers: {
+                        "Authorization": `Bearer ${token}`
+                    }
+                });
+                const testResult = await testRes.json();
+
+                if (testRes.status === 401) {
+                    testLog.innerText += `✅ CORRECT: Token rejected after logout\n`;
+                    testLog.innerText += `Response: ${testResult.message}\n`;
+                } else {
+                    testLog.innerText += `❌ WRONG: Token still accepted after logout!\n`;
+                    testLog.innerText += `Response: ${JSON.stringify(testResult, null, 2)}\n`;
+                }
+
+            } catch (e) {
+                testLog.innerText += `Error: ${e}`;
+            }
+        }
+
+        async function testMultipleLogouts() {
+            const testLog = document.getElementById("test-log");
+            testLog.innerText = "Testing multiple logout attempts...\n\n";
+
+            if (!jwtToken) {
+                testLog.innerText += "No active token. Please login first.\n";
+                return;
+            }
+
+            testLog.innerText += "[1] First logout...\n";
+            try {
+                const res1 = await fetch(`${API_URL}/logout`, {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${jwtToken}`,
+                        "Content-Type": "application/json"
+                    }
+                });
+                const result1 = await res1.json();
+                testLog.innerText += `${result1.message}\n`;
+
+                // Try logout again with same token
+                testLog.innerText += "[2] Second logout with same token (should fail)...\n";
+                const res2 = await fetch(`${API_URL}/logout`, {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${jwtToken}`,
+                        "Content-Type": "application/json"
+                    }
+                });
+                const result2 = await res2.json();
+
+                if (res2.status === 401) {
+                    testLog.innerText += `✅ CORRECT: Second logout rejected\n`;
+                } else {
+                    testLog.innerText += `Response: ${JSON.stringify(result2, null, 2)}\n`;
+                }
+            } catch (e) {
+                testLog.innerText += `Error: ${e}`;
+            }
+        }
+
+        function testTokenInfo() {
+            const testLog = document.getElementById("test-log");
+
+            if (!jwtToken) {
+                testLog.innerText = "No token available. Please login first.\n";
+                return;
+            }
+
+            try {
+                // JWT format: header.payload.signature
+                const parts = jwtToken.split('.');
+                if (parts.length !== 3) {
+                    testLog.innerText = "Invalid JWT format\n";
+                    return;
+                }
+
+                // Decode payload (add padding if needed)
+                const payload = parts[1];
+                const padded = payload + '='.repeat((4 - payload.length % 4) % 4);
+                const decoded = JSON.parse(atob(padded));
+
+                testLog.innerText = "JWT Token Info:\n";
+                testLog.innerText += JSON.stringify(decoded, null, 2) + "\n\n";
+
+                if (decoded.iat) {
+                    const iatDate = new Date(decoded.iat * 1000);
+                    testLog.innerText += `Issued At: ${iatDate.toLocaleString()}\n`;
+                }
+
+                if (decoded.exp) {
+                    const expDate = new Date(decoded.exp * 1000);
+                    const now = new Date();
+                    const expiresIn = Math.round((decoded.exp - Math.floor(now.getTime() / 1000)) / 60);
+                    testLog.innerText += `Expires At: ${expDate.toLocaleString()}\n`;
+                    testLog.innerText += `Expires in: ${expiresIn} minutes\n`;
+                }
+
+                testLog.innerText += `\nUser ID: ${decoded.user_id}\n`;
+            } catch (e) {
+                testLog.innerText = `Error decoding token: ${e}`;
             }
         }
     </script>
