@@ -1,6 +1,17 @@
 # Christ API
 
-REST API backend dibangun dengan Go + Fiber. Fokus: cepat dikembangkan, mudah dibaca, dan siap dikembangkan lebih lanjut.
+REST API backend dibangun dengan **Go 1.25** + **Fiber v2**. Fokus: cepat dikembangkan, mudah dibaca, dan siap dikembangkan lebih lanjut.
+
+**Version:** 1.2.0+ | **Status:** Active Development
+
+**Features:**
+- 🔐 Authentication (Email/Password + Google Sign-In)
+- ✉️ OTP Verification & Email notifications
+- 👥 Role Management (Admin, User, etc.)
+- 📇 Contact Management
+- 📰 News & Articles
+- ⭐ Points System
+- 🛡️ JWT + Admin Middleware
 
 ---
 
@@ -85,236 +96,291 @@ Catatan singkat: `.env.local` dipakai untuk `go run`, sedangkan `.env.docker` di
 ChristAPI/
 ├── cmd/server/           → Entry point (main.go)
 ├── internal/             → Feature modules
-│   ├── auth/            → Authentication
-│   ├── bible/           → Bible module
-│   ├── contacts/        → Contacts
-│   ├── news/            → News
-│   └── ...
+│   ├── auth/            → Authentication (Email, OTP, Google Sign-In)
+│   ├── role/            → Role Management (Admin, User, etc.)
+│   ├── email/           → Email notifications & OTP
+│   ├── contacts/        → Contact management
+│   ├── news/            → News & articles
+│   ├── points/          → Points/reward system
+│   ├── sites/           → Site management
+│   └── middleware/      → Admin, JWT, etc.
 ├── pkg/                 → Reusable packages
-│   ├── database/        → DB connection
-│   └── jwt/             → JWT utilities
+│   ├── database/        → DB connection & context
+│   ├── jwt/             → JWT utilities
+│   └── response/        → Response formatting
 ├── routes/              → API endpoints registration
-├── migrations/          → SQL migrations
+├── migrations/          → SQL migrations (auto-run on setup)
+├── docs/                → API documentation & schema
+├── .githooks/           → Git hooks (pre-commit format check)
 ├── SETUP.md             → 👈 Start here!
+├── QUICKSTART.md        → Common commands
+├── DOCKER.md            → Docker guide
+├── CHECKLIST.md         → Development workflow
 └── docker-compose.yml   → Container orchestration
 ```
 
 ### Prinsip Struktur:
-Setiap fitur di `internal/<feature>/` punya 4 file:
+Setiap fitur di `internal/<feature>/` punya 4 file utama:
 - **handler.go** — Parse request, return response (thin layer)
-- **service.go** — Business logic
-- **repository.go** — Database queries (parameterized)
-- **model.go** — Data structures
+- **service.go** — Business logic, no DB queries
+- **repository.go** — Database queries (parameterized, context-aware)
+- **model.go** — Data structures & constants
 
 ---
 
-## ⚙️ Development
+## 🔐 Authentication & Authorization
 
-1. Buat fitur baru di `internal/<feature>` dengan empat file:
-   - `handler.go` — hanya parsing request dan return response
-   - `service.go` — logika utama, tanpa DB query langsung
-   - `repository.go` — query ke DB (gunakan parameterized query)
-   - `model.go` — struct data
+**Supported Methods:**
+- Email + Password (with OTP verification)
+- Google Sign-In (OAuth 2.0)
+- Admin user seeding on first setup
 
-2. Daftarkan route di `routes/routes.go`.
-3. Unit test untuk `service` (mock repository) dan integration test untuk handler (httptest atau Postman).
+**Features:**
+- OTP via email with enhanced HTML templates
+- JWT-based authentication
+- Admin middleware for protected routes
+- User approval workflow
+- Profile completion flow (post-Google sign-in)
+- Automatic contact creation on login
 
-Prinsip singkat: keep handlers thin, push logic ke service, query hanya di repository.
-
-Contoh commit message singkat dan jelas:
+**Key Endpoints:**
 ```
-feat(news): add list and create endpoints
-fix(auth): handle nil DB connection
+POST   /api/auth/login              → Email/password login
+POST   /api/auth/register           → Register new user
+POST   /api/auth/google             → Google OAuth flow
+POST   /api/auth/verify-otp         → Verify OTP
+POST   /api/auth/logout             → Logout
+GET    /api/auth/me                 → Get current user
 ```
 
 ---
 
-## Step-by-step: Tambah endpoint baru
+## 👥 Role Management
 
-Berikut langkah praktis untuk menambah fitur/endpoint baru. Contoh menggunakan feature `news`.
+**Built-in Roles:**
+- `admin` — Full system access
+- `user` — Standard user permissions
 
-1) Buat folder feature
+**Role Operations:**
+```
+GET    /api/admin/roles             → List all roles (admin-only)
+POST   /api/admin/roles             → Create role (admin-only)
+PUT    /api/admin/roles/:id         → Update role (admin-only)
+DELETE /api/admin/roles/:id         → Delete role (admin-only)
+```
 
+Each role has:
+- `id` — Numeric ID
+- `code` — Unique code (e.g., "admin", "user")
+- `name` — Display name
+- `description` — Role description
+- `created_at`, `updated_at` — Timestamps
+
+---
+
+## ✉️ Email & Notifications
+
+**Email Features:**
+- OTP delivery with styled HTML templates
+- Parameterized SMTP configuration
+- GoMail integration
+
+**Template System:**
+- Dynamic content injection
+- Professional HTML formatting
+- Responsive design
+
+---
+
+## 📊 Additional Features
+
+**Contact Management**
+- Create & manage contacts
+- Link to user profiles
+
+**News & Articles**
+- CRUD operations
+- Site-based organization
+
+**Points System**
+- User points tracking
+- Reward management
+
+---
+
+## ⚙️ Development Workflow
+
+**Adding a New Endpoint:**
+
+1. Create feature folder
 ```bash
-mkdir -p internal/news
+mkdir -p internal/<feature>
 ```
 
-2) `model.go` — definisikan struct data
-
+2. Define data structure in `model.go`
 ```go
-package news
-
-import "time"
-
-type News struct {
-  ID int64 `json:"id"`
-  UUID string `json:"uuid"`
-  Title string `json:"title"`
-  Content string `json:"content"`
-  SiteID *int64 `json:"site_id,omitempty"`
+type Model struct {
+  ID        int64     `json:"id"`
+  UUID      string    `json:"uuid"`
+  Name      string    `json:"name"`
   CreatedAt time.Time `json:"created_at"`
   UpdatedAt time.Time `json:"updated_at"`
 }
 ```
 
-3) `repository.go` — semua query DB, satu interface + satu impl
-
+3. Define repository interface in `repository.go`
 ```go
-package news
-
-import (
-  "context"
-  "database/sql"
-)
-
 type Repository interface {
-  FindByID(ctx context.Context, id int64) (*News, error)
-  List(ctx context.Context, siteID *int64, limit, offset int) ([]News, error)
-  Create(ctx context.Context, n *News) (*News, error)
+  FindByID(ctx context.Context, id int64) (*Model, error)
+  List(ctx context.Context, limit, offset int) ([]Model, error)
+  Create(ctx context.Context, m *Model) (*Model, error)
 }
-
-type repo struct { db *sql.DB }
-func NewRepository(db *sql.DB) Repository { return &repo{db: db} }
-
-// implement FindByID, List, Create — gunakan QueryRowContext/QueryContext
 ```
 
-4) `service.go` — business logic, bergantung pada interface repo
-
+4. Implement business logic in `service.go`
 ```go
-package news
-
-import "context"
-
 type Service interface {
-  Get(ctx context.Context, id int64) (*News, error)
-  Create(ctx context.Context, n *News) (*News, error)
+  Get(ctx context.Context, id int64) (*Model, error)
+  Create(ctx context.Context, m *Model) (*Model, error)
 }
-
-type service struct { repo Repository }
-func NewService(r Repository) Service { return &service{repo: r} }
-
-func (s *service) Get(ctx context.Context, id int64) (*News, error) {
-  if id <= 0 { return nil, ErrInvalidID }
-  return s.repo.FindByID(ctx, id)
-}
-
-// Create: validasi ringkas lalu repo.Create
 ```
 
-5) `handler.go` — HTTP layer, tipis, register route
-
+5. Create HTTP handlers in `handler.go`
 ```go
-package news
-
-import "github.com/gofiber/fiber/v2"
-
-type Handler struct{ svc Service }
-func NewHandler(s Service) *Handler { return &Handler{svc: s} }
-
 func (h *Handler) RegisterRoutes(app *fiber.App) {
-  g := app.Group("/api")
-  g.Get("/news", h.list)
-  g.Post("/news", h.create)
+  g := app.Group("/api/<feature>")
+  g.Get("/:id", h.Get)
+  g.Post("/", h.Create)
 }
-
-// h.list/h.create: parse request, call service, return JSON/status
 ```
 
-6) Wiring di `main.go` atau `routes.Setup`
-
+6. Wire up in `routes/routes.go`
 ```go
-db := database.DB // atau NewPostgresConnection()
-repo := news.NewRepository(db)
-svc := news.NewService(repo)
-handler := news.NewHandler(svc)
+repo := feature.NewRepository(db)
+svc := feature.NewService(repo)
+handler := feature.NewHandler(svc)
 handler.RegisterRoutes(app)
 ```
 
-7) Testing cepat
+7. Add tests
 
-- Unit test service: mock `Repository` (interface) dan tes logika.
-- Repo tests: gunakan `github.com/DATA-DOG/go-sqlmock` untuk assert query.
-- Handler tests: gunakan Fiber's app + `httptest` untuk request/response.
+**Core Principles:**
+- Handlers: parse request, call service, return response (thin layer)
+- Service: business logic only, no DB queries
+- Repository: all data access with parameterized queries
+- Use `context.Context` in all async operations
+- Return errors, never panic
 
-Tips singkat:
-- Jangan letakkan business logic di handler.
-- Repository harus mengembalikan errors, bukan panic.
-- Selalu gunakan parameterized query dan context.
+**Commit Messages:**
+```
+feat(role): add code field to roles and enhance management
+fix(auth): handle nil DB connection during Google OAuth
+refactor(contacts): improve validation logic
+```
 
 ---
 
-## Testing
+## 🧪 Testing
 
-- Run unit tests:
-```
+**Run all tests:**
+```bash
 go test ./...
 ```
 
-- Rekomendasi:
-  - Untuk repository tests: gunakan `github.com/DATA-DOG/go-sqlmock` agar tidak perlu DB nyata.
-  - Untuk handler tests: gunakan `net/http/httptest` atau jalankan server lokal dan pakai Postman.
+**Strategy:**
+- **Service tests:** Mock the Repository interface (unit tests)
+- **Repository tests:** Use `github.com/DATA-DOG/go-sqlmock` to avoid needing a real database
+- **Handler tests:** Use Fiber's app with `httptest` or run the server locally with Postman/curl
 
-Contoh cepat curl:
-```
-# Login
-curl -X POST http://localhost:3000/api/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"a@b.com","password":"pass"}'
-
-# List news
-curl http://localhost:3000/api/news
-```
-
----
-
-## Migrations
-
-- Folder `migrations/` berisi SQL siap pakai. Untuk development cukup jalankan:
-```
-psql -h $DB_HOST -U $DB_USER -d $DB_NAME -f migrations/0001_create_news.sql
-```
-- Untuk production gunakan tool migration (contoh: `golang-migrate`).
-
----
-
-## Lint & format
-
-- Format: `gofmt -w .`
-- Vet: `go vet ./...`
-- (Opsional) Static analysis: `staticcheck ./...`
-
----
-
-## Best practices singkat
-
-- Hindari panic di repository; kembalikan error.
-- Gunakan parameterized queries untuk mencegah SQL injection.
-- Prefer dependency injection untuk repos/services (lebih mudah testing).
-- Simpan secrets di `.env` dan jangan commit.
-
----
-
-Butuh bantuan lebih lanjut? sebutkan fitur yang mau ditambah atau testing yang ingin dibuat — saya bantu contoh kode dan test case singkat.
-
-Checklists: lihat [CHECKLIST.md](CHECKLIST.md) untuk panduan pre-commit, CI, migration, dan release.
-
----
-
-**Enable Git pre-commit hooks (recommended)**
-
-We added a simple pre-commit hook to ensure Go files are formatted before committing. To enable it for your local clone:
-
+**Example requests:**
 ```bash
-# run once per clone
+# Register
+curl -X POST http://localhost:3001/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"securepass123"}'
+
+# Login with OTP
+curl -X POST http://localhost:3001/api/auth/verify-otp \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","otp":"123456"}'
+
+# Get current user (requires JWT token in Authorization header)
+curl -H "Authorization: Bearer <token>" \
+  http://localhost:3001/api/auth/me
+
+# Admin: List roles
+curl -H "Authorization: Bearer <admin-token>" \
+  http://localhost:3001/api/admin/roles
+```
+
+---
+
+## 📦 Migrations
+
+**Automatic setup:**
+- Migrations run automatically on `dalamNamaTuhan.ps1` (Windows) or Docker startup
+- Located in `migrations/` folder with sequential numbering (0001_, 0002_, etc.)
+
+**Manual migration (if needed):**
+```bash
+psql -h $DB_HOST -U $DB_USER -d $DB_NAME -f migrations/0001_initial_schema.sql
+```
+
+**Adding a new migration:**
+1. Create `migrations/NNNN_description.sql`
+2. Use parameterized SQL only
+3. Test locally with Docker: `docker-compose up --build`
+
+---
+
+## 🔍 Lint & Format
+
+**Format code:**
+```bash
+gofmt -w .
+```
+
+**Vet for issues:**
+```bash
+go vet ./...
+```
+
+**Optional static analysis:**
+```bash
+staticcheck ./...
+```
+
+**Pre-commit hook** (recommended — blocks unformatted commits):
+```bash
 git config core.hooksPath .githooks
 chmod +x .githooks/pre-commit
 ```
 
-What it does:
-- Runs `gofmt -l .` and blocks the commit if any files are unformatted.
-- If the hook blocks your commit, run `gofmt -w .`, `git add` the changes, then commit again.
+---
 
-You can remove or disable the hook by resetting `core.hooksPath`.
+## ✅ Best Practices
+
+- **No panics in repositories** — return errors always
+- **Parameterized queries only** — prevents SQL injection
+- **Dependency injection** — wire repos/services at startup, makes testing easier
+- **Secrets in .env** — never commit them
+- **Use context.Context** — for timeouts and cancellation in all I/O operations
+- **Thin handlers** — parse, call service, return response
+- **Service contains logic** — no DB queries in services
+- **Repository does data access** — all queries parameterized, context-aware
+
+---
+
+## 📚 Additional Resources
+
+- **[SETUP.md](./SETUP.md)** — Complete setup guide (Docker & local)
+- **[QUICKSTART.md](./QUICKSTART.md)** — Common commands cheat sheet
+- **[DOCKER.md](./DOCKER.md)** — Docker setup and troubleshooting
+- **[CHECKLIST.md](./CHECKLIST.md)** — Pre-commit, CI, migration checklist
+- **[docs/schema.sql](./docs/schema.sql)** — Database schema reference
+
+---
+
+**Questions?** Open an issue or check the documentation files above.
 
 

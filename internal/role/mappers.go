@@ -11,6 +11,7 @@ func RoleToRoleResponse(role *Role) *responses.RoleResponse {
 	return &responses.RoleResponse{
 		ID:          role.ID,
 		Name:        role.Name,
+		Code:        role.Code,
 		Description: role.Description,
 		SiteID:      role.SiteID,
 	}

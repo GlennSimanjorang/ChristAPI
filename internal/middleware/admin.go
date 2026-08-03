@@ -3,6 +3,7 @@ package middleware
 import (
 	"strings"
 
+	"christ-api/internal/role"
 	jwtpkg "christ-api/pkg/jwt"
 	"christ-api/pkg/response"
 
@@ -45,7 +46,12 @@ func AdminOnly(c *fiber.Ctx) error {
 		return response.Error(c, 403, "no role assigned", nil)
 	}
 
-	if roleID != 1 {
+	roleObj, err := role.Service.GetByID(roleID)
+	if err != nil {
+		return response.Error(c, 403, "admin role required", nil)
+	}
+
+	if roleObj.Code != "admin" && roleObj.Code != "super_admin" {
 		return response.Error(c, 403, "admin role required", nil)
 	}
 
