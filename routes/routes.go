@@ -2,7 +2,6 @@ package routes
 
 import (
 	"christ-api/internal/auth"
-	"christ-api/internal/bible"
 	"christ-api/internal/contacts"
 	"christ-api/internal/middleware"
 	"christ-api/internal/news"
@@ -16,11 +15,14 @@ import (
 func Setup(app *fiber.App) {
 	api := app.Group("/api")
 
-	// public route
+	// public auth routes
 	api.Post("/login", auth.Login)
 	api.Post("/register", auth.Register)
+	api.Post("/verify-otp", auth.VerifyOTP)
+	api.Post("/auth/google", auth.LoginGoogle)
+	api.Post("/auth/google/username", auth.SubmitGoogleUsername)
 
-	// protected route
+	// protected routes
 	protected := api.Group("/", middleware.AuthMiddleware)
 
 	protected.Get("/profile", func(c *fiber.Ctx) error {
@@ -29,10 +31,18 @@ func Setup(app *fiber.App) {
 		})
 	})
 
-	// roles
-	protected.Get("/roles", role.ListRoles)
-	protected.Post("/roles", role.CreateRole)
-	protected.Patch("/roles/:id", role.UpdateRole)
+	protected.Post("/logout", auth.Logout)
+
+	// admin approvals (admin only)
+	adminRoutes := protected.Group("/admin", middleware.AdminOnly)
+	adminRoutes.Get("/approvals", auth.GetPendingApprovals)
+	adminRoutes.Post("/approvals/:id/approve", auth.ApproveUser)
+	adminRoutes.Post("/approvals/:id/reject", auth.RejectUser)
+
+	// roles (admin only)
+	adminRoutes.Get("/roles", role.ListRoles)
+	adminRoutes.Post("/roles", role.CreateRole)
+	adminRoutes.Patch("/roles/:id", role.UpdateRole)
 
 	// sites
 	protected.Get("/sites", sites.ListSites)
@@ -56,11 +66,4 @@ func Setup(app *fiber.App) {
 	protected.Post("/news", news.CreateNews)
 	protected.Patch("/news/:uuid", news.UpdateNews)
 	protected.Delete("/news/:uuid", news.DeleteNews)
-
-	// bible
-	protected.Get("/books", bible.ListSurat)
-	protected.Get("/books/:id/chapters", bible.ListPasal)
-	protected.Get("/books/:book_id/chapters/:id", bible.GetPasalDetail)
-	protected.Get("/chapters/:id/verses", bible.ListAyat)
-	protected.Get("/verses/:id", bible.GetAyat)
 }

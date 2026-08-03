@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auth & Approval Flow Simulator</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f7f6;
+        }
+        h1, h2, h3 {
+            color: #2c3e50;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+        .card {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .full-width {
+            grid-column: 1 / -1;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"], input[type="email"], input[type="password"] {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #3498db;
+            color: #fff;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        button.admin-btn {
+            background-color: #e67e22;
+        }
+        button.admin-btn:hover {
+            background-color: #d35400;
+        }
+        button.secondary {
+            background-color: #95a5a6;
+        }
+        button.secondary:hover {
+            background-color: #7f8c8d;
+        }
+        .log-box {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            height: 150px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin-top: 10px;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status-pending { background-color: #ffeaa7; color: #d63031; }
+        .status-approved { background-color: #55efc4; color: #00b894; }
+        .token-info {
+            background-color: #dfe6e9;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <h1>Auth & Approval Flow Simulator</h1>
+    <p>Gunakan halaman ini untuk melakukan pengujian alur registrasi Google OAuth, OTP Dummy, dan Persetujuan Admin.</p>
+
+    <!-- Login -->
+    <div class="card">
+        <h2>Login (Email & Password)</h2>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+            <div class="form-group" style="margin:0; flex:1; min-width:160px;">
+                <label>Email</label>
+                <input type="email" id="login-email" placeholder="admin@christapi.dev" value="admin@christapi.dev">
+            </div>
+            <div class="form-group" style="margin:0; flex:1; min-width:120px;">
+                <label>Password</label>
+                <input type="password" id="login-password" placeholder="password" value="password">
+            </div>
+            <button onclick="doLogin()" style="height:38px;">Login</button>
+        </div>
+    </div>
+
+    <!-- Global State Info -->
+    <div class="card">
+        <h2>Active JWT Token / Session</h2>
+        <div id="token-display" class="token-info">No token stored. Login dulu.</div>
+        <div id="user-info" style="background-color: #ecf0f1; padding: 10px; border-radius: 4px; font-size: 12px; margin-top: 10px; display: none;">
+            <strong>Logged in as:</strong> <span id="user-email"></span><br>
+            <strong>Role:</strong> <span id="user-role"></span><br>
+            <strong>Points:</strong> <span id="user-points"></span>
+        </div>
+        <p style="margin-top: 15px;">
+            <button class="secondary" onclick="clearToken()">Clear Token (Manual)</button>
+            <button onclick="testProfile()">Test Protected API (/api/profile)</button>
+            <button onclick="doLogout()" id="logout-btn" style="display: none; background-color: #e74c3c;" onmouseover="this.style.backgroundColor='#c0392b'" onmouseout="this.style.backgroundColor='#e74c3c'">Logout</button>
+        </p>
+        <div id="profile-log" class="log-box">Response will appear here...</div>
+    </div>
+
+    <div class="container">
+        <!-- Scenario A: Google Sign-In -->
+        <div class="card">
+            <h2>Skenario A: Google Sign-In</h2>
+            <p style="font-size: 12px; color: #7f8c8d; margin-bottom: 15px;">Login menggunakan akun Google Anda. Pada first login, Anda diminta mengisi profile lengkap.</p>
+
+            <div style="text-align: center; padding: 20px; border: 1px solid #ecf0f1; border-radius: 8px; background-color: #f9f9f9;">
+                <div id="g_id_onload"
+                     data-client_id="19085886514-lgfr9ce97us82dvoa7qdfp4go6ejlavt.apps.googleusercontent.com"
+                     data-callback="handleGoogleResponse">
+                </div>
+                <div class="g_id_signin" data-type="standard"></div>
+            </div>
+
+            <div id="google-status" style="display: none; margin-top: 15px; padding: 12px; border-radius: 4px; text-align: center; font-weight: bold;">
+                <span id="google-status-text"></span>
+            </div>
+
+            <div id="google-username-section" style="margin-top: 20px; display: none; border-top: 1px solid #eee; padding-top: 15px; animation: slideDown 0.3s ease;">
+                <h3 style="color: #27ae60; margin-bottom: 10px;">✓ Profile Completion</h3>
+                <p style="font-size: 12px; color: #7f8c8d; margin-bottom: 15px;">Lengkapi informasi profile Anda untuk melanjutkan proses registrasi.</p>
+                <input type="hidden" id="google-user-id">
+
+                <div class="form-group">
+                    <label>Username * <span style="color: #7f8c8d; font-size: 12px;">(e.g., john_doe)</span></label>
+                    <input type="text" id="google-username" placeholder="johndoe" style="border: 1px solid #bdc3c7;">
+                </div>
+
+                <div class="form-group">
+                    <label>Nama Lengkap *</label>
+                    <input type="text" id="google-fullname" placeholder="John Doe" style="border: 1px solid #bdc3c7;">
+                </div>
+
+                <div class="form-group">
+                    <label>Nomor Telepon <span style="color: #7f8c8d; font-size: 12px;">(optional)</span></label>
+                    <input type="tel" id="google-phone" placeholder="+62812345678" style="border: 1px solid #bdc3c7;">
+                </div>
+
+                <div class="form-group">
+                    <label>Alamat <span style="color: #7f8c8d; font-size: 12px;">(optional)</span></label>
+                    <input type="text" id="google-address" placeholder="Jl. Contoh No. 123" style="border: 1px solid #bdc3c7;">
+                </div>
+
+                <div style="display: flex; gap: 10px;">
+                    <button onclick="submitGoogleUsername()" style="flex: 1; background-color: #27ae60;">Submit Profile</button>
+                    <button onclick="resetGoogleForm()" class="secondary" style="flex: 1;">Cancel</button>
+                </div>
+            </div>
+
+            <div id="google-success" style="display: none; margin-top: 15px; padding: 15px; background-color: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; text-align: center;">
+                <h4 style="color: #155724; margin: 0;">✓ Login Berhasil!</h4>
+                <p style="color: #155724; margin: 5px 0; font-size: 12px;">Profile Anda telah tersimpan. Menunggu approval admin...</p>
+            </div>
+
+            <style>
+                @keyframes slideDown {
+                    from {
+                        opacity: 0;
+                        transform: translateY(-10px);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
+                }
+            </style>
+        </div>
+
+        <!-- Scenario B: Credentials (Email/Password) -->
+        <div class="card">
+            <h2>Skenario B: Email & Password</h2>
+            <div class="form-group">
+                <label>Nama Lengkap</label>
+                <input type="text" id="reg-name" placeholder="John Doe">
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="reg-email" placeholder="john@example.com">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="reg-password" placeholder="******">
+            </div>
+            <button onclick="registerCredentials()">1. Register Account</button>
+
+            <div id="otp-section" style="margin-top: 20px; display: none; border-top: 1px solid #eee; padding-top: 15px;">
+                <h3>2. Verifikasi OTP</h3>
+                <p style="color: #27ae60; font-weight: bold;">✓ Kode OTP telah dikirim ke email Anda</p>
+                <p style="font-size: 12px; color: #7f8c8d;">Periksa email untuk menerima kode verifikasi 6 digit. Jika tidak menerima, cek folder spam.</p>
+                <div class="form-group">
+                    <label>Masukkan Kode OTP</label>
+                    <input type="text" id="otp-code" placeholder="123456" maxlength="6">
+                </div>
+                <button onclick="verifyOTP()">Verify OTP</button>
+            </div>
+        </div>
+
+        <!-- Admin Panel -->
+        <div class="card full-width">
+            <h2>Panel Admin (Approval Antrean)</h2>
+            <p>Admin dapat melihat user yang mendaftar dan menyetujui akses mereka ke API.</p>
+            <p>
+                <button class="admin-btn" onclick="listApprovals()">Refresh Antrean Approval</button>
+            </p>
+            <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                <thead>
+                    <tr style="background-color: #dfe6e9; text-align: left;">
+                        <th style="padding: 8px;">ID</th>
+                        <th style="padding: 8px;">Email</th>
+                        <th style="padding: 8px;">Username</th>
+                        <th style="padding: 8px;">Status Approval</th>
+                        <th style="padding: 8px;">Status Aktif</th>
+                        <th style="padding: 8px;">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="approvals-table-body">
+                    <tr>
+                        <td colspan="6" style="padding: 10px; text-align: center; color: #7f8c8d;">Klik "Refresh Antrean Approval" untuk melihat daftar.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Roles Management -->
+    <div class="card full-width">
+        <h2>Role Management (Admin Only)</h2>
+        <p>Manage application roles for controlling user permissions.</p>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px;">
+            <button class="admin-btn" onclick="listRoles()">List All Roles</button>
+            <div style="flex: 1; min-width: 200px;">
+                <input type="text" id="new-role-name" placeholder="Role name" style="width: 100%; padding: 8px; margin-bottom: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+                <textarea id="new-role-desc" placeholder="Role description (optional)" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; height: 60px;"></textarea>
+            </div>
+            <button class="admin-btn" onclick="createRole()" style="align-self: flex-end;">Create Role</button>
+        </div>
+        <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+            <thead>
+                <tr style="background-color: #dfe6e9; text-align: left;">
+                    <th style="padding: 8px;">ID</th>
+                    <th style="padding: 8px;">Name</th>
+                    <th style="padding: 8px;">Description</th>
+                    <th style="padding: 8px;">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="roles-table-body">
+                <tr>
+                    <td colspan="4" style="padding: 10px; text-align: center; color: #7f8c8d;">Klik "List All Roles" untuk melihat daftar roles.</td>
+                </tr>
+            </tbody>
+        </table>
+        <div id="roles-log" class="log-box" style="margin-top: 15px; height: 100px;">Roles operations log will appear here...</div>
+    </div>
+
+    <!-- Test Scenarios -->
+    <div class="card full-width">
+        <h2>Test Scenarios & Edge Cases</h2>
+        <p>Testing berbagai skenario untuk memastikan auth flow berjalan dengan benar.</p>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+            <button onclick="testInvalidToken()" class="secondary">Test: Invalid Token Format</button>
+            <button onclick="testExpiredToken()" class="secondary">Test: Token After Logout</button>
+            <button onclick="testNoToken()" class="secondary">Test: No Token</button>
+            <button onclick="testLoginLogoutCycle()" style="background-color: #9b59b6;">Login → Logout → Try Login</button>
+            <button onclick="testMultipleLogouts()" style="background-color: #16a085;">Multiple Logout Attempts</button>
+            <button onclick="testTokenInfo()" class="secondary">Decode Token Info (iat/exp)</button>
+        </div>
+        <div id="test-log" class="log-box" style="margin-top: 15px;">Test results will appear here...</div>
+    </div>
+
+    <!-- Logout Modal -->
+    <div id="logout-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
+        <div style="background: white; padding: 30px; border-radius: 8px; text-align: center; max-width: 400px;">
+            <h2 style="color: #27ae60; margin-bottom: 10px;">✓ Logout Berhasil</h2>
+            <p style="color: #7f8c8d; margin-bottom: 20px;">Token telah di-invalidate. Anda akan dialihkan ke halaman login...</p>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button onclick="dismissLogoutModal()" class="secondary">Tutup</button>
+                <button onclick="refreshPage()" style="background-color: #27ae60;">Refresh Sekarang</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Output Logs -->
+    <div class="card">
+        <h2>System Logs / HTTP Responses</h2>
+        <div id="system-log" class="log-box">Logs will appear here...</div>
+    </div>
+
+    <script>
+        const API_URL = "http://localhost:3000/api";
+        let jwtToken = localStorage.getItem("jwt_token") || "";
+
+        // UI Initial Load
+        if (jwtToken) {
+            updateTokenDisplay();
+        }
+
+        function log(message, data = null) {
+            const logBox = document.getElementById("system-log");
+            let text = `[${new Date().toLocaleTimeString()}] ${message}\n`;
+            if (data) {
+                text += JSON.stringify(data, null, 2) + "\n";
+            }
+            logBox.innerText = text + logBox.innerText;
+        }
+
+        function clearToken() {
+            jwtToken = "";
+            localStorage.removeItem("jwt_token");
+            updateTokenDisplay();
+            log("Token cleared.");
+        }
+
+        async function doLogin() {
+            const email = document.getElementById("login-email").value;
+            const password = document.getElementById("login-password").value;
+            if (!email || !password) { alert("Email dan password wajib diisi!"); return; }
+            try {
+                log(`Login sebagai ${email}...`);
+                const res = await fetch(`${API_URL}/login`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email, password })
+                });
+                const result = await res.json();
+                log("Login Response", result);
+                if (result.success && result.data?.token) {
+                    jwtToken = result.data.token;
+                    localStorage.setItem("jwt_token", jwtToken);
+                    updateTokenDisplay();
+                    if (result.data.user) {
+                        document.getElementById("user-email").innerText = result.data.user.email || result.data.user.name;
+                        document.getElementById("user-role").innerText = result.data.user.role || "User";
+                        document.getElementById("user-points").innerText = result.data.user.points || "0";
+                    }
+                    log(`✅ Login sukses sebagai ${result.data.user?.email}`);
+                } else {
+                    alert("Login gagal: " + result.message);
+                }
+            } catch (e) { log("Error Login: " + e.toString()); }
+        }
+
+        async function doLogout() {
+            if (!jwtToken) {
+                alert("Tidak ada token aktif!");
+                return;
+            }
+
+            try {
+                log("Logging out...");
+                const res = await fetch(`${API_URL}/logout`, {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${jwtToken}`,
+                        "Content-Type": "application/json"
+                    }
+                });
+                const result = await res.json();
+                log("Logout Response", result);
+
+                if (result.success) {
+                    log("✅ Logout berhasil! Token telah di-invalidate.");
+                    clearToken();
+
+                    // Test: coba pakai token lama
+                    setTimeout(() => {
+                        log("🧪 Testing: Mencoba pakai token lama (seharusnya rejected)...");
+                        testProfileWithOldToken();
+                    }, 1000);
+                } else {
+                    alert("Logout gagal: " + result.message);
+                }
+            } catch (e) {
+                log("Error Logout: " + e.toString());
+            }
+        }
+
+        async function testProfileWithOldToken() {
+            // Simpan token lama
+            const oldToken = localStorage.getItem("jwt_token_before_logout");
+            if (!oldToken) {
+                log("⚠️ No saved old token to test with");
+                return;
+            }
+
+            try {
+                const profileLog = document.getElementById("profile-log");
+                profileLog.innerText = "Testing /api/profile dengan token lama...";
+                const response = await fetch(`${API_URL}/profile`, {
+                    method: "GET",
+                    headers: {
+                        "Authorization": `Bearer ${oldToken}`
+                    }
+                });
+                const result = await response.json();
+                profileLog.innerText = JSON.stringify(result, null, 2);
+                log("🧪 Old Token Test Result: " + (response.status === 401 ? "✅ Rejected (Correct!)" : "❌ Accepted (Wrong!)"), result);
+            } catch (error) {
+                log("Error testing old token: " + error.toString());
+            }
+        }
+
+        function updateTokenDisplay() {
+            const display = document.getElementById("token-display");
+            const userInfo = document.getElementById("user-info");
+            const logoutBtn = document.getElementById("logout-btn");
+
+            if (jwtToken) {
+                display.innerText = "Bearer " + jwtToken;
+                display.style.color = "#27ae60";
+                logoutBtn.style.display = "inline-block";
+                userInfo.style.display = "block";
+            } else {
+                display.innerText = "No token stored. Register/Login to get a token.";
+                display.style.color = "#7f8c8d";
+                logoutBtn.style.display = "none";
+                userInfo.style.display = "none";
+            }
+        }
+
+        // 1. Google OAuth Flow - Real Callback
+        function handleGoogleResponse(response) {
+            const idToken = response.credential;
+            if (!idToken) {
+                log("❌ Google sign-in failed: No credential returned");
+                return;
+            }
+
+            processGoogleLogin(idToken);
+        }
+
+        async function processGoogleLogin(idToken) {
+            try {
+                log("🔐 Verifying Google ID token with backend...");
+                const res = await fetch(`${API_URL}/auth/google`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id_token: idToken })
+                });
+                const result = await res.json();
+                log("Google Login Response", result);
+
+                if (result.success) {
+                    const data = result.data;
+                    if (data.status === "pending_username") {
+                        document.getElementById("google-user-id").value = data.user.id;
+                        document.getElementById("google-username-section").style.display = "block";
+                        log("✅ Registrasi Google berhasil. Silakan isi username di form.");
+                    } else if (data.status === "pending_approval") {
+                        log("⏳ Akun Google ini sedang menunggu approval admin.");
+                    } else if (data.token) {
+                        jwtToken = data.token;
+                        localStorage.setItem("jwt_token", jwtToken);
+                        updateTokenDisplay();
+                        log("✅ Google Login sukses!");
+                    } else {
+                        log("Status Google Login: " + data.status);
+                    }
+                } else {
+                    alert("Gagal Google login: " + result.message);
+                }
+            } catch (error) {
+                log("❌ Error Google Login: " + error.toString());
+            }
+        }
+
+        async function submitGoogleUsername() {
+            const userId = document.getElementById("google-user-id").value;
+            const username = document.getElementById("google-username").value;
+            const fullName = document.getElementById("google-fullname").value;
+            const phone = document.getElementById("google-phone").value;
+            const address = document.getElementById("google-address").value;
+
+            if (!username || !fullName) {
+                alert("Username dan Nama Lengkap wajib diisi!");
+                return;
+            }
+
+            try {
+                log(`Submitting profile for User ID: ${userId}...`);
+                const response = await fetch(`${API_URL}/auth/google/username`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        user_id: parseInt(userId),
+                        username: username,
+                        full_name: fullName,
+                        phone: phone || null,
+                        address: address || null
+                    })
+                });
+
+                const result = await response.json();
+                log("Submit Profile Response", result);
+
+                if (result.success) {
+                    log("✅ Profile disubmit. Akun sekarang berada di antrean approval admin.");
+                    document.getElementById("google-username-section").style.display = "none";
+                    document.getElementById("google-success").style.display = "block";
+                } else {
+                    alert("Gagal submit profile: " + result.message);
+                }
+            } catch (error) {
+                log("Error Submit Profile", error);
+            }
+        }
+
+        function resetGoogleForm() {
+            document.getElementById("google-username").value = "";
+            document.getElementById("google-fullname").value = "";
+            document.getElementById("google-phone").value = "";
+            document.getElementById("google-address").value = "";
+            document.getElementById("google-username-section").style.display = "none";
+            document.getElementById("google-success").style.display = "none";
+            log("Google form reset.");
+        }
+
+        // 2. Email & Password Flow
+        async function registerCredentials() {
+            const name = document.getElementById("reg-name").value;
+            const email = document.getElementById("reg-email").value;
+            const password = document.getElementById("reg-password").value;
+
+            if (!name || !email || !password) {
+                alert("Semua field pendaftaran wajib diisi!");
+                return;
+            }
+
+            try {
+                log(`Registering account ${email}...`);
+                const response = await fetch(`${API_URL}/register`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ full_name: name, email: email, password: password })
+                });
+
+                const result = await response.json();
+                log("Registration Response", result);
+
+                if (result.success) {
+                    document.getElementById("otp-section").style.display = "block";
+                    log(`Registrasi sukses. OTP Dummy yang dibuat: ${result.data.otp}`);
+                    alert(`Registrasi sukses! Masukkan kode OTP dummy: ${result.data.otp}`);
+                } else {
+                    alert("Registrasi gagal: " + result.message);
+                }
+            } catch (error) {
+                log("Error Register", error);
+            }
+        }
+
+        async function verifyOTP() {
+            const email = document.getElementById("reg-email").value;
+            const code = document.getElementById("otp-code").value;
+
+            if (!code) {
+                alert("Masukkan OTP!");
+                return;
+            }
+
+            try {
+                log(`Verifying OTP "${code}" for email: ${email}...`);
+                const response = await fetch(`${API_URL}/verify-otp`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email: email, otp_code: code })
+                });
+
+                const result = await response.json();
+                log("Verify OTP Response", result);
+
+                if (result.success) {
+                    log("OTP terverifikasi! Akun Anda telah masuk ke antrean approval admin.");
+                    document.getElementById("otp-section").style.display = "none";
+                } else {
+                    alert("Verifikasi OTP gagal: " + result.message);
+                }
+            } catch (error) {
+                log("Error Verify OTP", error);
+            }
+        }
+
+        // 3. Admin Approvals
+        async function listApprovals() {
+            try {
+                log("Fetching pending approvals list...");
+                const response = await fetch(`${API_URL}/admin/approvals`, {
+                    method: "GET",
+                    headers: {
+                        "Authorization": jwtToken ? `Bearer ${jwtToken}` : ""
+                    }
+                });
+
+                const result = await response.json();
+                log("List Approvals Response", result);
+
+                if (result.success) {
+                    const tbody = document.getElementById("approvals-table-body");
+                    tbody.innerHTML = "";
+
+                    if (result.data.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="6" style="padding: 10px; text-align: center; color: #7f8c8d;">Tidak ada user dalam antrean approval saat ini.</td></tr>`;
+                        return;
+                    }
+
+                    result.data.forEach(user => {
+                        const tr = document.createElement("tr");
+                        tr.style.borderBottom = "1px solid #eee";
+                        tr.innerHTML = `
+                            <td style="padding: 8px;">${user.id}</td>
+                            <td style="padding: 8px;">${user.email}</td>
+                            <td style="padding: 8px;">${user.username || '<i>(Belum isi)</i>'}</td>
+                            <td style="padding: 8px;"><span class="status-badge status-pending">${user.approval_status}</span></td>
+                            <td style="padding: 8px;">${user.is_active ? 'Aktif' : 'Non-aktif'}</td>
+                            <td style="padding: 8px;">
+                                <button onclick="approveUser(${user.id})" class="admin-btn">Approve</button>
+                                <button onclick="rejectUser(${user.id})" class="secondary">Reject</button>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                } else {
+                    alert("Gagal mengambil list approval: " + result.message);
+                }
+            } catch (error) {
+                log("Error List Approvals", error);
+            }
+        }
+
+        async function approveUser(id) {
+            try {
+                log(`Approving user with ID: ${id}...`);
+                const response = await fetch(`${API_URL}/admin/approvals/${id}/approve`, {
+                    method: "POST",
+                    headers: {
+                        "Authorization": jwtToken ? `Bearer ${jwtToken}` : ""
+                    }
+                });
+
+                const result = await response.json();
+                log("Approve Response", result);
+
+                if (result.success) {
+                    alert("User berhasil disetujui!");
+                    listApprovals();
+                } else {
+                    alert("Gagal approve user: " + result.message);
+                }
+            } catch (error) {
+                log("Error Approve User", error);
+            }
+        }
+
+        async function rejectUser(id) {
+            try {
+                log(`Rejecting user with ID: ${id}...`);
+                const response = await fetch(`${API_URL}/admin/approvals/${id}/reject`, {
+                    method: "POST",
+                    headers: {
+                        "Authorization": jwtToken ? `Bearer ${jwtToken}` : ""
+                    }
+                });
+
+                const result = await response.json();
+                log("Reject Response", result);
+
+                if (result.success) {
+                    alert("User ditolak.");
+                    listApprovals();
+                } else {
+                    alert("Gagal reject user: " + result.message);
+                }
+            } catch (error) {
+                log("Error Reject User", error);
+            }
+        }
+
+        // 4. Test Protected API
+        async function testProfile() {
+            const profileLog = document.getElementById("profile-log");
+            profileLog.innerText = "Calling /api/profile...";
+
+            try {
+                const response = await fetch(`${API_URL}/profile`, {
+                    method: "GET",
+                    headers: {
+                        "Authorization": jwtToken ? `Bearer ${jwtToken}` : ""
+                    }
+                });
+
+                const result = await response.json();
+                profileLog.innerText = JSON.stringify(result, null, 2);
+            } catch (error) {
+                profileLog.innerText = "Error fetching profile: " + error.toString();
+            }
+        }
+
+        // Test Scenarios
+        function testInvalidToken() {
+            const testLog = document.getElementById("test-log");
+            testLog.innerText = "Testing with invalid token format...\n";
+
+            const invalidToken = "this.is.not.valid.jwt";
+            testLog.innerText += `Token: ${invalidToken}\n`;
+            testLog.innerText += "Expected: 401 Invalid token\n\n";
+
+            fetch(`${API_URL}/profile`, {
+                method: "GET",
+                headers: {
+                    "Authorization": `Bearer ${invalidToken}`
+                }
+            })
+            .then(r => r.json())
+            .then(result => {
+                testLog.innerText += `Response: ${JSON.stringify(result, null, 2)}`;
+                log("🧪 Invalid Token Test Result", result);
+            })
+            .catch(e => {
+                testLog.innerText += `Error: ${e}`;
+            });
+        }
+
+        function testExpiredToken() {
+            const testLog = document.getElementById("test-log");
+            testLog.innerText = "Testing token after logout...\n";
+            testLog.innerText += "1. Login\n2. Logout\n3. Try use old token (should be rejected)\n\n";
+            testLog.innerText += "This test requires running login & logout first.\n";
+            testLog.innerText += "Then call testProfileWithOldToken()";
+        }
+
+        function testNoToken() {
+            const testLog = document.getElementById("test-log");
+            testLog.innerText = "Testing without token...\n";
+            testLog.innerText += "Expected: 401 missing token\n\n";
+
+            fetch(`${API_URL}/profile`, {
+                method: "GET",
+                headers: {}
+            })
+            .then(r => r.json())
+            .then(result => {
+                testLog.innerText += `Response: ${JSON.stringify(result, null, 2)}`;
+                log("🧪 No Token Test Result", result);
+            })
+            .catch(e => {
+                testLog.innerText += `Error: ${e}`;
+            });
+        }
+
+        async function testLoginLogoutCycle() {
+            const testLog = document.getElementById("test-log");
+            testLog.innerText = "Testing Login → Logout → Login cycle...\n\n";
+
+            const email = "test@example.com";
+            const password = "password123";
+
+            try {
+                // Step 1: Try login (may fail if user doesn't exist)
+                testLog.innerText += "[1] Attempting login...\n";
+                const loginRes = await fetch(`${API_URL}/login`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email, password })
+                });
+                const loginResult = await loginRes.json();
+
+                if (!loginResult.success) {
+                    testLog.innerText += `Login failed (expected if user doesn't exist): ${loginResult.message}\n`;
+                    testLog.innerText += "\nUse a valid email/password to test this flow.\n";
+                    return;
+                }
+
+                testLog.innerText += `✅ Login success\n`;
+                const token = loginResult.data.token;
+
+                // Step 2: Logout
+                testLog.innerText += "[2] Calling logout...\n";
+                const logoutRes = await fetch(`${API_URL}/logout`, {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${token}`,
+                        "Content-Type": "application/json"
+                    }
+                });
+                const logoutResult = await logoutRes.json();
+                testLog.innerText += `✅ Logout response: ${logoutResult.message}\n`;
+
+                // Step 3: Try use old token (should fail)
+                testLog.innerText += "[3] Trying to use old token (should be rejected)...\n";
+                const testRes = await fetch(`${API_URL}/profile`, {
+                    method: "GET",
+                    headers: {
+                        "Authorization": `Bearer ${token}`
+                    }
+                });
+                const testResult = await testRes.json();
+
+                if (testRes.status === 401) {
+                    testLog.innerText += `✅ CORRECT: Token rejected after logout\n`;
+                    testLog.innerText += `Response: ${testResult.message}\n`;
+                } else {
+                    testLog.innerText += `❌ WRONG: Token still accepted after logout!\n`;
+                    testLog.innerText += `Response: ${JSON.stringify(testResult, null, 2)}\n`;
+                }
+
+            } catch (e) {
+                testLog.innerText += `Error: ${e}`;
+            }
+        }
+
+        async function testMultipleLogouts() {
+            const testLog = document.getElementById("test-log");
+            testLog.innerText = "Testing multiple logout attempts...\n\n";
+
+            if (!jwtToken) {
+                testLog.innerText += "No active token. Please login first.\n";
+                return;
+            }
+
+            testLog.innerText += "[1] First logout...\n";
+            try {
+                const res1 = await fetch(`${API_URL}/logout`, {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${jwtToken}`,
+                        "Content-Type": "application/json"
+                    }
+                });
+                const result1 = await res1.json();
+                testLog.innerText += `${result1.message}\n`;
+
+                // Try logout again with same token
+                testLog.innerText += "[2] Second logout with same token (should fail)...\n";
+                const res2 = await fetch(`${API_URL}/logout`, {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${jwtToken}`,
+                        "Content-Type": "application/json"
+                    }
+                });
+                const result2 = await res2.json();
+
+                if (res2.status === 401) {
+                    testLog.innerText += `✅ CORRECT: Second logout rejected\n`;
+                } else {
+                    testLog.innerText += `Response: ${JSON.stringify(result2, null, 2)}\n`;
+                }
+            } catch (e) {
+                testLog.innerText += `Error: ${e}`;
+            }
+        }
+
+        function testTokenInfo() {
+            const testLog = document.getElementById("test-log");
+
+            if (!jwtToken) {
+                testLog.innerText = "No token available. Please login first.\n";
+                return;
+            }
+
+            try {
+                // JWT format: header.payload.signature
+                const parts = jwtToken.split('.');
+                if (parts.length !== 3) {
+                    testLog.innerText = "Invalid JWT format\n";
+                    return;
+                }
+
+                // Decode payload (add padding if needed)
+                const payload = parts[1];
+                const padded = payload + '='.repeat((4 - payload.length % 4) % 4);
+                const decoded = JSON.parse(atob(padded));
+
+                testLog.innerText = "JWT Token Info:\n";
+                testLog.innerText += JSON.stringify(decoded, null, 2) + "\n\n";
+
+                if (decoded.iat) {
+                    const iatDate = new Date(decoded.iat * 1000);
+                    testLog.innerText += `Issued At: ${iatDate.toLocaleString()}\n`;
+                }
+
+                if (decoded.exp) {
+                    const expDate = new Date(decoded.exp * 1000);
+                    const now = new Date();
+                    const expiresIn = Math.round((decoded.exp - Math.floor(now.getTime() / 1000)) / 60);
+                    testLog.innerText += `Expires At: ${expDate.toLocaleString()}\n`;
+                    testLog.innerText += `Expires in: ${expiresIn} minutes\n`;
+                }
+
+                testLog.innerText += `\nUser ID: ${decoded.user_id}\n`;
+                if (decoded.role_id) {
+                    testLog.innerText += `Role ID: ${decoded.role_id}\n`;
+                }
+            } catch (e) {
+                testLog.innerText = `Error decoding token: ${e}`;
+            }
+        }
+
+        // Roles Management Functions
+        function rolesLog(message, data = null) {
+            const logBox = document.getElementById("roles-log");
+            let text = `[${new Date().toLocaleTimeString()}] ${message}\n`;
+            if (data) {
+                text += JSON.stringify(data, null, 2) + "\n";
+            }
+            logBox.innerText = text + logBox.innerText;
+        }
+
+        async function listRoles() {
+            try {
+                rolesLog("Fetching roles list...");
+                const response = await fetch(`${API_URL}/admin/roles`, {
+                    method: "GET",
+                    headers: {
+                        "Authorization": jwtToken ? `Bearer ${jwtToken}` : ""
+                    }
+                });
+
+                const result = await response.json();
+                rolesLog("List Roles Response", result);
+
+                if (result.success) {
+                    const tbody = document.getElementById("roles-table-body");
+                    tbody.innerHTML = "";
+
+                    if (!result.data || result.data.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="4" style="padding: 10px; text-align: center; color: #7f8c8d;">Tidak ada roles saat ini.</td></tr>`;
+                        return;
+                    }
+
+                    result.data.forEach(role => {
+                        const tr = document.createElement("tr");
+                        tr.style.borderBottom = "1px solid #eee";
+                        tr.innerHTML = `
+                            <td style="padding: 8px;">${role.id}</td>
+                            <td style="padding: 8px;">${role.name}</td>
+                            <td style="padding: 8px;">${role.description || '-'}</td>
+                            <td style="padding: 8px;">
+                                <button onclick="editRole(${role.id}, '${role.name}')" class="secondary" style="padding: 5px 10px;">Edit</button>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                } else {
+                    alert("Gagal mengambil roles: " + result.message);
+                }
+            } catch (error) {
+                rolesLog("Error List Roles", error);
+            }
+        }
+
+        async function createRole() {
+            const name = document.getElementById("new-role-name").value;
+            const description = document.getElementById("new-role-desc").value;
+
+            if (!name) {
+                alert("Role name wajib diisi!");
+                return;
+            }
+
+            try {
+                rolesLog(`Creating role: ${name}...`);
+                const response = await fetch(`${API_URL}/admin/roles`, {
+                    method: "POST",
+                    headers: {
+                        "Authorization": jwtToken ? `Bearer ${jwtToken}` : "",
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        name: name,
+                        description: description || null
+                    })
+                });
+
+                const result = await response.json();
+                rolesLog("Create Role Response", result);
+
+                if (result.success) {
+                    alert("Role berhasil dibuat!");
+                    document.getElementById("new-role-name").value = "";
+                    document.getElementById("new-role-desc").value = "";
+                    listRoles();
+                } else {
+                    alert("Gagal membuat role: " + result.message);
+                }
+            } catch (error) {
+                rolesLog("Error Create Role", error);
+            }
+        }
+
+        function editRole(id, name) {
+            const newName = prompt(`Edit role name (current: ${name})`);
+            if (!newName) return;
+
+            // TODO: Implement update role endpoint
+            alert("Update role functionality coming soon");
+        }
+
+        // Logout Modal Functions
+        function dismissLogoutModal() {
+            document.getElementById("logout-modal").style.display = "none";
+        }
+
+        function refreshPage() {
+            window.location.reload();
+        }
+
+        // Update doLogout to show modal
+        async function doLogout() {
+            if (!jwtToken) {
+                alert("Tidak ada token aktif!");
+                return;
+            }
+
+            try {
+                log("Logging out...");
+                const res = await fetch(`${API_URL}/logout`, {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${jwtToken}`,
+                        "Content-Type": "application/json"
+                    }
+                });
+                const result = await res.json();
+                log("Logout Response", result);
+
+                if (result.success) {
+                    log("✅ Logout berhasil! Token telah di-invalidate.");
+                    clearToken();
+
+                    // Show logout success modal
+                    document.getElementById("logout-modal").style.display = "flex";
+
+                    // Auto-refresh after 3 seconds
+                    setTimeout(() => {
+                        refreshPage();
+                    }, 3000);
+                } else {
+                    alert("Logout gagal: " + result.message);
+                }
+            } catch (e) {
+                log("Error Logout: " + e.toString());
+            }
+        }
+    </script>
+</body>
+</html>
