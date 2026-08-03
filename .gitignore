@@ -26,10 +26,19 @@ vendor/
 # =========================
 
 .env
-.env.*
+.env.local
+.env.*.local
+.env.production.local
 !.env.example
-!.env.local
 !.env.docker
+
+# =========================
+
+# Local shell scripts & development
+
+# =========================
+!scripts/
+.claude/
 
 # =========================
 
@@ -97,3 +106,16 @@ coverage.html
 # =========================
 
 docker-compose.override.yml
+
+# =========================
+
+# Local credentials & secrets
+
+# =========================
+
+*.key
+*.pem
+*.p12
+*.pfx
+credentials.json
+secrets.yaml

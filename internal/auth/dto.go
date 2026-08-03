@@ -6,11 +6,14 @@ type LoginResponse struct {
 }
 
 type LoginUserResponse struct {
-	ID     int64  `json:"id"`
-	Name   string `json:"name"`
-	Email  string `json:"email"`
-	Role   string `json:"role"`
-	Points int64  `json:"points"`
+	ID             int64   `json:"id"`
+	Name           string  `json:"name"`
+	Email          string  `json:"email"`
+	Username       *string `json:"username"`
+	Role           string  `json:"role"`
+	Points         int64   `json:"points"`
+	ApprovalStatus string  `json:"approval_status"`
+	IsActive       bool    `json:"is_active"`
 }
 
 type LoginDataResponse struct {
@@ -25,6 +28,23 @@ type LoginSuccessResponse struct {
 }
 
 type UserDTO struct {
-	ID    int64  `json:"id"`
-	Email string `json:"email"`
+	ID             int64   `json:"id"`
+	Email          string  `json:"email"`
+	Username       *string `json:"username"`
+	ApprovalStatus string  `json:"approval_status"`
+	IsActive       bool    `json:"is_active"`
+}
+
+type GoogleLoginRequest struct {
+	IDToken string `json:"id_token"`
+	Email   string `json:"email"` // fallback/mock
+}
+
+type SubmitUsernameRequest struct {
+	Username string `json:"username"`
+}
+
+type VerifyOTPRequest struct {
+	Email   string `json:"email"`
+	OTPCode string `json:"otp_code"`
 }

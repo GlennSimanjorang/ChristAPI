@@ -10,6 +10,7 @@ import (
 	"christ-api/routes"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/joho/godotenv"
 )
 
@@ -32,7 +33,11 @@ func main() {
 	auth.InitService(&auth.AuthRepository{DB: database.DB})
 
 	app := fiber.New()
+	app.Use(cors.New())
 	app.Use(middleware.CustomLogger)
+
+	// Serve static files from docs directory
+	app.Static("/docs", "./docs")
 
 	routes.Setup(app)
 

@@ -16,11 +16,14 @@ import (
 func Setup(app *fiber.App) {
 	api := app.Group("/api")
 
-	// public route
+	// public auth routes
 	api.Post("/login", auth.Login)
 	api.Post("/register", auth.Register)
+	api.Post("/verify-otp", auth.VerifyOTP)
+	api.Post("/auth/google", auth.LoginGoogle)
+	api.Post("/auth/google/username", auth.SubmitGoogleUsername)
 
-	// protected route
+	// protected routes
 	protected := api.Group("/", middleware.AuthMiddleware)
 
 	protected.Get("/profile", func(c *fiber.Ctx) error {
@@ -28,6 +31,11 @@ func Setup(app *fiber.App) {
 			"message": "you are logged in",
 		})
 	})
+
+	// admin approvals
+	protected.Get("/admin/approvals", auth.GetPendingApprovals)
+	protected.Post("/admin/approvals/:id/approve", auth.ApproveUser)
+	protected.Post("/admin/approvals/:id/reject", auth.RejectUser)
 
 	// roles
 	protected.Get("/roles", role.ListRoles)

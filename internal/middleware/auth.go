@@ -1,8 +1,10 @@
 package middleware
 
 import (
+	"database/sql"
 	"strings"
 
+	"christ-api/pkg/database"
 	jwtpkg "christ-api/pkg/jwt"
 	"christ-api/pkg/response"
 
@@ -31,19 +33,42 @@ func AuthMiddleware(c *fiber.Ctx) error {
 		return response.Error(c, 401, "invalid token", nil)
 	}
 
+	var userID int64
+
 	// try to extract user_id claim and set to locals for handlers
 	if claims, ok := token.Claims.(jwtlib.MapClaims); ok {
 		if uid, exists := claims["user_id"]; exists {
 			switch v := uid.(type) {
 			case float64:
-				c.Locals("user_id", int64(v))
+				userID = int64(v)
 			case int64:
-				c.Locals("user_id", v)
+				userID = v
 			case int:
-				c.Locals("user_id", int64(v))
+				userID = int64(v)
 			}
 		}
 	}
 
+	if userID == 0 {
+		return response.Error(c, 401, "invalid token claims", nil)
+	}
+
+	// Check user active status and approval status in database
+	var isActive bool
+	var approvalStatus string
+	query := `SELECT is_active, approval_status FROM users WHERE id = $1 LIMIT 1`
+	err = database.DB.QueryRow(query, userID).Scan(&isActive, &approvalStatus)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return response.Error(c, 401, "user not found", nil)
+		}
+		return response.Error(c, 500, "database error", nil)
+	}
+
+	if !isActive || approvalStatus != "approved" {
+		return response.Error(c, 403, "your account is inactive or pending approval", nil)
+	}
+
+	c.Locals("user_id", userID)
 	return c.Next()
 }
