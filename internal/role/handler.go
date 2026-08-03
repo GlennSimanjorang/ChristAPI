@@ -74,4 +74,3 @@ func UpdateRole(c *fiber.Ctx) error {
 
 	return response.Success(c, "Role updated", RoleToRoleResponse(role))
 }
-

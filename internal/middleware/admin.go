@@ -51,4 +51,3 @@ func AdminOnly(c *fiber.Ctx) error {
 
 	return c.Next()
 }
-

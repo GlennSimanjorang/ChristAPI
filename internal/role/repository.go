@@ -95,4 +95,3 @@ func (r *RoleRepository) Update(id int64, name string, description *string) (*Ro
 	}
 	return &role, nil
 }
-
