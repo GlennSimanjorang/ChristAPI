@@ -10,25 +10,29 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-var service = RoleService{}
+var Service = RoleService{}
 
 func InitService(repo *RoleRepository) {
 	if repo != nil {
-		service = RoleService{Repo: repo}
+		Service = RoleService{Repo: repo}
 	}
 }
 
 func ListRoles(c *fiber.Ctx) error {
 	req := &requests.ListRolesRequest{}
+
+	// check request query parameters
 	if err := c.QueryParser(req); err != nil {
 		return response.Error(c, 422, "Invalid query parameters", nil)
 	}
 
-	roles, err := service.List(req.ID, req.SiteID)
+	// validasiin request query parameters
+	roles, err := Service.List(req.ID, req.SiteID)
 	if err != nil {
 		return response.Error(c, 500, "Failed to list roles", nil)
 	}
 
+	// convert roles to response DTOs
 	resp := RolesToRoleResponses(roles)
 	return response.Success(c, "Roles retrieved", resp)
 }
@@ -43,7 +47,7 @@ func CreateRole(c *fiber.Ctx) error {
 		return response.Error(c, 422, err.Error(), nil)
 	}
 
-	role, err := service.Create(req.Name, req.Description, req.SiteID)
+	role, err := Service.Create(req.Name, req.Code, req.Description, req.SiteID)
 	if err != nil {
 		return response.Error(c, 500, "Failed to create role", nil)
 	}
@@ -67,7 +71,7 @@ func UpdateRole(c *fiber.Ctx) error {
 		return response.Error(c, 422, err.Error(), nil)
 	}
 
-	role, err := service.Update(id, req.Name, req.Description)
+	role, err := Service.Update(id, req.Name, req.Code, req.Description)
 	if err != nil {
 		return response.Error(c, 500, "Failed to update role", nil)
 	}
