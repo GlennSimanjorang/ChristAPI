@@ -39,10 +39,10 @@ func Setup(app *fiber.App) {
 	adminRoutes.Post("/approvals/:id/approve", auth.ApproveUser)
 	adminRoutes.Post("/approvals/:id/reject", auth.RejectUser)
 
-	// roles
-	protected.Get("/roles", role.ListRoles)
-	protected.Post("/roles", role.CreateRole)
-	protected.Patch("/roles/:id", role.UpdateRole)
+	// roles (admin only)
+	adminRoutes.Get("/roles", role.ListRoles)
+	adminRoutes.Post("/roles", role.CreateRole)
+	adminRoutes.Patch("/roles/:id", role.UpdateRole)
 
 	// sites
 	protected.Get("/sites", sites.ListSites)
