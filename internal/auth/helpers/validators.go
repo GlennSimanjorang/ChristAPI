@@ -64,5 +64,8 @@ func ValidateSubmitGoogleUsername(req *requests.SubmitGoogleUsernameRequest) err
 	if req.Username == "" {
 		return errors.New("username is required")
 	}
+	if req.FullName == "" {
+		return errors.New("full_name is required")
+	}
 	return nil
 }

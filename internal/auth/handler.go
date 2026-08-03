@@ -98,6 +98,7 @@ func VerifyOTP(c *fiber.Ctx) error {
 	return response.Success(c, "OTP verified successfully. Your account is now pending admin approval.", nil)
 }
 
+// LoginGoogle handles Google OAuth login or registration.
 func LoginGoogle(c *fiber.Ctx) error {
 	req := new(requests.GoogleLoginRequest)
 	if err := c.BodyParser(req); err != nil {
@@ -156,12 +157,12 @@ func SubmitGoogleUsername(c *fiber.Ctx) error {
 		return response.Error(c, 422, err.Error(), nil)
 	}
 
-	err := service.SubmitGoogleUsername(req.UserID, req.Username)
+	err := service.SubmitGoogleUsername(req.UserID, req.Username, req.FullName, req.Phone, req.Address, req.SiteID)
 	if err != nil {
 		return response.Error(c, 400, err.Error(), nil)
 	}
 
-	return response.Success(c, "Username updated. Your account is now pending admin approval.", nil)
+	return response.Success(c, "Username updated and contact created. Your account is now pending admin approval.", nil)
 }
 
 // GetPendingApprovals list users waiting for admin approval

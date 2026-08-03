@@ -320,3 +320,66 @@ func (r *AuthRepository) UpdateLastLogout(userID int64) error {
 	_, err := r.DB.Exec(query, userID)
 	return err
 }
+
+// CreateContact creates a new contact record
+func (r *AuthRepository) CreateContact(fullName string, phone, address *string, siteID *int64) (*contacts.Contact, error) {
+	if r == nil || r.DB == nil {
+		return nil, sql.ErrConnDone
+	}
+
+	var c contacts.Contact
+	query := `INSERT INTO contacts (full_name, phone, address, created_at, updated_at, site_id) VALUES ($1, $2, $3, NOW(), NOW(), $4) RETURNING id, full_name, phone, address, created_at, updated_at, site_id`
+
+	var phoneN sql.NullString
+	var addrN sql.NullString
+	var createdN sql.NullTime
+	var updatedN sql.NullTime
+	var siteIDN sql.NullInt64
+
+	row := r.DB.QueryRow(query, fullName, phone, address, siteID)
+	if err := row.Scan(&c.ID, &c.FullName, &phoneN, &addrN, &createdN, &updatedN, &siteIDN); err != nil {
+		return nil, err
+	}
+
+	if phoneN.Valid {
+		v := phoneN.String
+		c.Phone = &v
+	}
+	if addrN.Valid {
+		v := addrN.String
+		c.Address = &v
+	}
+	if createdN.Valid {
+		c.CreatedAt = &createdN.Time
+	}
+	if updatedN.Valid {
+		c.UpdatedAt = &updatedN.Time
+	}
+	if siteIDN.Valid {
+		v := siteIDN.Int64
+		c.SiteID = &v
+	}
+
+	return &c, nil
+}
+
+// UpdateUsernameContactAndStatus updates username, contact_id, and approval status
+func (r *AuthRepository) UpdateUsernameContactAndStatus(userID int64, username string, contactID *int64, newStatus string) error {
+	if r == nil || r.DB == nil {
+		return sql.ErrConnDone
+	}
+
+	// Check if username is already taken
+	var exists bool
+	err := r.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE username = $1 AND id != $2)", username, userID).Scan(&exists)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return errors.New("username is already taken")
+	}
+
+	query := `UPDATE users SET username = $2, contact_id = $3, approval_status = $4, updated_at = NOW() WHERE id = $1`
+	_, err = r.DB.Exec(query, userID, username, contactID, newStatus)
+	return err
+}

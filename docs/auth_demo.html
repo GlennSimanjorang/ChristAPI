@@ -154,13 +154,26 @@
             <div class="g_id_signin" data-type="standard"></div>
 
             <div id="google-username-section" style="margin-top: 20px; display: none; border-top: 1px solid #eee; padding-top: 15px;">
-                <h3>2. Set Username (First time Google Login)</h3>
+                <h3>2. Complete Profile (First time Google Login)</h3>
+                <p style="font-size: 12px; color: #7f8c8d;">Please complete your profile information to proceed.</p>
                 <input type="hidden" id="google-user-id">
                 <div class="form-group">
-                    <label>Pilih Username</label>
+                    <label>Username *</label>
                     <input type="text" id="google-username" placeholder="johndoe">
                 </div>
-                <button onclick="submitGoogleUsername()">Submit Username</button>
+                <div class="form-group">
+                    <label>Nama Lengkap *</label>
+                    <input type="text" id="google-fullname" placeholder="John Doe">
+                </div>
+                <div class="form-group">
+                    <label>Nomor Telepon</label>
+                    <input type="tel" id="google-phone" placeholder="+62812345678">
+                </div>
+                <div class="form-group">
+                    <label>Alamat</label>
+                    <input type="text" id="google-address" placeholder="Jl. Contoh No. 123">
+                </div>
+                <button onclick="submitGoogleUsername()">Submit Profile</button>
             </div>
         </div>
 
@@ -421,30 +434,40 @@
         async function submitGoogleUsername() {
             const userId = document.getElementById("google-user-id").value;
             const username = document.getElementById("google-username").value;
-            if (!username) {
-                alert("Username wajib diisi!");
+            const fullName = document.getElementById("google-fullname").value;
+            const phone = document.getElementById("google-phone").value;
+            const address = document.getElementById("google-address").value;
+
+            if (!username || !fullName) {
+                alert("Username dan Nama Lengkap wajib diisi!");
                 return;
             }
 
             try {
-                log(`Submitting username "${username}" for User ID: ${userId}...`);
+                log(`Submitting profile for User ID: ${userId}...`);
                 const response = await fetch(`${API_URL}/auth/google/username`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ user_id: parseInt(userId), username: username })
+                    body: JSON.stringify({
+                        user_id: parseInt(userId),
+                        username: username,
+                        full_name: fullName,
+                        phone: phone || null,
+                        address: address || null
+                    })
                 });
 
                 const result = await response.json();
-                log("Submit Username Response", result);
+                log("Submit Profile Response", result);
 
                 if (result.success) {
-                    log("Username disubmit. Akun sekarang berada di antrean approval admin.");
+                    log("✅ Profile disubmit. Akun sekarang berada di antrean approval admin.");
                     document.getElementById("google-username-section").style.display = "none";
                 } else {
-                    alert("Gagal submit username: " + result.message);
+                    alert("Gagal submit profile: " + result.message);
                 }
             } catch (error) {
-                log("Error Submit Username", error);
+                log("Error Submit Profile", error);
             }
         }
 
