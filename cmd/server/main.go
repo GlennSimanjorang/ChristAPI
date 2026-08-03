@@ -6,6 +6,7 @@ import (
 
 	"christ-api/internal/auth"
 	"christ-api/internal/middleware"
+	"christ-api/internal/role"
 	"christ-api/pkg/database"
 	"christ-api/routes"
 
@@ -31,6 +32,7 @@ func main() {
 
 	// initialize services that need DB
 	auth.InitService(&auth.AuthRepository{DB: database.DB})
+	role.InitService(&role.RoleRepository{DB: database.DB})
 
 	app := fiber.New()
 	app.Use(cors.New())

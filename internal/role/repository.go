@@ -1,25 +1,26 @@
 package role
 
 import (
-	"christ-api/pkg/database"
 	"database/sql"
 )
 
-type RoleRepository struct{}
+type RoleRepository struct {
+	DB *sql.DB
+}
 
 func (r *RoleRepository) Get(id, siteID *int64) ([]Role, error) {
-	if database.DB == nil {
+	if r == nil || r.DB == nil {
 		return nil, sql.ErrConnDone
 	}
 
 	var rows *sql.Rows
 	var err error
 	if id != nil {
-		rows, err = database.DB.Query(`SELECT id, name, description, site_id FROM roles WHERE id = $1`, *id)
+		rows, err = r.DB.Query(`SELECT id, name, description, site_id FROM roles WHERE id = $1`, *id)
 	} else if siteID != nil {
-		rows, err = database.DB.Query(`SELECT id, name, description, site_id FROM roles WHERE site_id = $1`, *siteID)
+		rows, err = r.DB.Query(`SELECT id, name, description, site_id FROM roles WHERE site_id = $1`, *siteID)
 	} else {
-		rows, err = database.DB.Query(`SELECT id, name, description, site_id FROM roles`)
+		rows, err = r.DB.Query(`SELECT id, name, description, site_id FROM roles`)
 	}
 	if err != nil {
 		return nil, err
@@ -28,67 +29,70 @@ func (r *RoleRepository) Get(id, siteID *int64) ([]Role, error) {
 
 	var out []Role
 	for rows.Next() {
-		var rlt Role
+		var role Role
 		var desc sql.NullString
 		var siteID sql.NullInt64
-		if err := rows.Scan(&rlt.ID, &rlt.Name, &desc, &siteID); err != nil {
+		if err := rows.Scan(&role.ID, &role.Name, &desc, &siteID); err != nil {
 			return nil, err
 		}
 		if desc.Valid {
 			v := desc.String
-			rlt.Description = &v
+			role.Description = &v
 		}
 		if siteID.Valid {
 			v := siteID.Int64
-			rlt.SiteID = &v
+			role.SiteID = &v
 		}
-		out = append(out, rlt)
+		out = append(out, role)
 	}
 	return out, nil
 }
 
 func (r *RoleRepository) Create(name string, description *string, siteID *int64) (*Role, error) {
-	if database.DB == nil {
+	if r == nil || r.DB == nil {
 		return nil, sql.ErrConnDone
 	}
+
 	query := `INSERT INTO roles (name, description, site_id) VALUES ($1, $2, $3) RETURNING id, name, description, site_id`
-	var rl Role
+	var role Role
 	var desc sql.NullString
 	var sID sql.NullInt64
-	row := database.DB.QueryRow(query, name, description, siteID)
-	if err := row.Scan(&rl.ID, &rl.Name, &desc, &sID); err != nil {
+	row := r.DB.QueryRow(query, name, description, siteID)
+	if err := row.Scan(&role.ID, &role.Name, &desc, &sID); err != nil {
 		return nil, err
 	}
 	if desc.Valid {
 		v := desc.String
-		rl.Description = &v
+		role.Description = &v
 	}
 	if sID.Valid {
 		v := sID.Int64
-		rl.SiteID = &v
+		role.SiteID = &v
 	}
-	return &rl, nil
+	return &role, nil
 }
 
 func (r *RoleRepository) Update(id int64, name string, description *string) (*Role, error) {
-	if database.DB == nil {
+	if r == nil || r.DB == nil {
 		return nil, sql.ErrConnDone
 	}
+
 	query := `UPDATE roles SET name = $1, description = $2 WHERE id = $3 RETURNING id, name, description, site_id`
-	var rl Role
+	var role Role
 	var desc sql.NullString
 	var sID sql.NullInt64
-	row := database.DB.QueryRow(query, name, description, id)
-	if err := row.Scan(&rl.ID, &rl.Name, &desc, &sID); err != nil {
+	row := r.DB.QueryRow(query, name, description, id)
+	if err := row.Scan(&role.ID, &role.Name, &desc, &sID); err != nil {
 		return nil, err
 	}
 	if desc.Valid {
 		v := desc.String
-		rl.Description = &v
+		role.Description = &v
 	}
 	if sID.Valid {
 		v := sID.Int64
-		rl.SiteID = &v
+		role.SiteID = &v
 	}
-	return &rl, nil
+	return &role, nil
 }
+

@@ -58,8 +58,8 @@ func (s *AuthService) Login(email, password string, siteID *int64) (string, *res
 		return "", nil, err
 	}
 
-	// generate token
-	token, err := jwt.GenerateToken(int(user.ID))
+	// generate token with role_id
+	token, err := jwt.GenerateToken(int(user.ID), user.RoleID)
 	if err != nil {
 		return "", nil, err
 	}
@@ -193,8 +193,8 @@ func (s *AuthService) GoogleLoginOrRegister(email, googleID string, siteID *int6
 		return "", "", nil, err
 	}
 
-	// generate token
-	token, err := jwt.GenerateToken(int(user.ID))
+	// generate token with role_id
+	token, err := jwt.GenerateToken(int(user.ID), user.RoleID)
 	if err != nil {
 		return "", "", nil, err
 	}

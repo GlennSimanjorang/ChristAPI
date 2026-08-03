@@ -20,6 +20,20 @@ func main() {
 	database.Connect()
 	defer database.DB.Close()
 
+	// Create admin role if it doesn't exist
+	var adminRoleID int64
+	err := database.DB.QueryRow("SELECT id FROM roles WHERE name = 'admin' LIMIT 1").Scan(&adminRoleID)
+	if err != nil {
+		// Admin role doesn't exist, create it
+		err = database.DB.QueryRow(
+			"INSERT INTO roles (name, description) VALUES ('admin', 'Administrator role with full access') RETURNING id",
+		).Scan(&adminRoleID)
+		if err != nil {
+			log.Fatalf("❌ Failed to create admin role: %v", err)
+		}
+		fmt.Printf("✅ Admin role created with ID: %d\n", adminRoleID)
+	}
+
 	email := "admin@christapi.dev"
 	password := "admin123456"
 	username := "admin"
@@ -42,15 +56,15 @@ func main() {
 		return
 	}
 
-	// Insert admin user (already approved and active)
-	query := `INSERT INTO users (email, username, password_hash, auth_provider, approval_status, is_active, created_at, updated_at)
-	VALUES ($1, $2, $3, 'credentials', 'approved', TRUE, NOW(), NOW())
+	// Insert admin user with admin role (already approved and active)
+	query := `INSERT INTO users (email, username, password_hash, auth_provider, approval_status, is_active, role_id, created_at, updated_at)
+	VALUES ($1, $2, $3, 'credentials', 'approved', TRUE, $4, NOW(), NOW())
 	RETURNING id, email, username`
 
 	var id int64
 	var returnedEmail, returnedUsername string
 
-	err = database.DB.QueryRow(query, email, username, hashedPassword).Scan(&id, &returnedEmail, &returnedUsername)
+	err = database.DB.QueryRow(query, email, username, hashedPassword, adminRoleID).Scan(&id, &returnedEmail, &returnedUsername)
 	if err != nil {
 		log.Fatalf("❌ Failed to create admin user: %v", err)
 	}
@@ -60,5 +74,6 @@ func main() {
 	fmt.Printf("   Email: %s\n", returnedEmail)
 	fmt.Printf("   Username: %s\n", returnedUsername)
 	fmt.Printf("   Password: %s\n", password)
+	fmt.Printf("   Role ID: %d (admin)\n", adminRoleID)
 	fmt.Println("\n📝 Note: Change this password after first login!")
 }
