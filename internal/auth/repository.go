@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"christ-api/internal/auth/dto/responses"
 	"christ-api/internal/contacts"
 )
 
@@ -153,7 +154,7 @@ func (r *AuthRepository) UpdateLastLoginAndSite(userID int64, siteID *int64) err
 	return err
 }
 
-func (r *AuthRepository) GetLoginUserProfile(userID int64) (*LoginUserResponse, error) {
+func (r *AuthRepository) GetLoginUserProfile(userID int64) (*responses.LoginUserResponse, error) {
 	if r == nil || r.DB == nil {
 		return nil, sql.ErrConnDone
 	}
@@ -174,7 +175,7 @@ func (r *AuthRepository) GetLoginUserProfile(userID int64) (*LoginUserResponse, 
 		WHERE u.id = $1
 		LIMIT 1`
 
-	var p LoginUserResponse
+	var p responses.LoginUserResponse
 	var username sql.NullString
 	row := r.DB.QueryRow(query, userID)
 	if err := row.Scan(&p.ID, &p.Name, &p.Email, &username, &p.Role, &p.Points, &p.ApprovalStatus, &p.IsActive); err != nil {
@@ -307,4 +308,15 @@ func (r *AuthRepository) GetPendingApprovals() ([]User, error) {
 	}
 
 	return users, nil
+}
+
+// UpdateLastLogout updates the last_logout_at timestamp for a user, invalidating all prior tokens
+func (r *AuthRepository) UpdateLastLogout(userID int64) error {
+	if r == nil || r.DB == nil {
+		return sql.ErrConnDone
+	}
+
+	query := `UPDATE users SET last_logout_at = NOW(), updated_at = NOW() WHERE id = $1`
+	_, err := r.DB.Exec(query, userID)
+	return err
 }

@@ -5,6 +5,8 @@ import (
 	"log"
 	"os"
 
+	"christ-api/internal/auth/dto/requests"
+	"christ-api/internal/auth/helpers"
 	"christ-api/internal/contacts"
 	"christ-api/pkg/response"
 
@@ -22,56 +24,42 @@ func InitService(repo *AuthRepository) {
 }
 
 func Login(c *fiber.Ctx) error {
-	type Request struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
-		SiteID   *int64 `json:"site_id"`
-	}
 
-	req := new(Request)
+	// buat request struct untuk login request
+	req := new(requests.LoginRequest)
 
+	// parse body request ke struct
 	if err := c.BodyParser(req); err != nil {
+		// kalau parsing gagal, return error 422
 		return response.Error(c, 422, "Invalid request", nil)
 	}
 
+	// kalau email & password kosong, return error 422
+	if err := helpers.ValidateLoginRequest(req); err != nil {
+		return response.Error(c, 422, err.Error(), nil)
+	}
+
+	// panggil service untuk login
 	token, profile, err := service.Login(req.Email, req.Password, req.SiteID)
+
+	// kalau login gagal, return error 401
 	if err != nil {
 		return response.Error(c, 401, err.Error(), nil)
 	}
 
-	data := LoginDataResponse{User: *profile, Token: token}
+	// kalau login berhasil, return token & profile
+	data := LoginUserResponseToLoginDataResponse(profile, token)
 	return response.Success(c, "Login berhasil", data)
 }
 
 func Register(c *fiber.Ctx) error {
-	type Request struct {
-		FullName      string  `json:"full_name"`
-		Phone         *string `json:"phone"`
-		Address       *string `json:"address"`
-		ContactSiteID *int64  `json:"contact_site_id"`
-		Email         string  `json:"email"`
-		Password      string  `json:"password"`
-		RoleID        *int64  `json:"role_id"`
-		SiteID        *int64  `json:"site_id"`
-	}
-
-	req := new(Request)
+	req := new(requests.RegisterRequest)
 	if err := c.BodyParser(req); err != nil {
 		return response.Error(c, 422, "Invalid request", nil)
 	}
 
-	validationErrs := make(map[string][]string)
-	if req.FullName == "" {
-		validationErrs["full_name"] = append(validationErrs["full_name"], "Full name is required")
-	}
-	if req.Email == "" {
-		validationErrs["email"] = append(validationErrs["email"], "Email is required")
-	}
-	if req.Password == "" {
-		validationErrs["password"] = append(validationErrs["password"], "Password is required")
-	}
-	if len(validationErrs) > 0 {
-		return response.Error(c, 422, "Validation failed", validationErrs)
+	if err := helpers.ValidateRegisterRequest(req); err != nil {
+		return response.Error(c, 422, err.Error(), nil)
 	}
 
 	otp, user, contact, err := service.RegisterWithContact(req.FullName, req.Phone, req.Address, req.ContactSiteID, req.Email, req.Password, req.RoleID, req.SiteID)
@@ -80,11 +68,11 @@ func Register(c *fiber.Ctx) error {
 	}
 
 	resp := struct {
-		User    UserDTO           `json:"user"`
+		User    interface{}       `json:"user"`
 		Contact *contacts.Contact `json:"contact"`
-		OTP     string            `json:"otp"` // Returned in dev/dummy mode so frontend can read it
+		OTP     string            `json:"otp"`
 	}{
-		User:    UserDTO{ID: user.ID, Email: user.Email, ApprovalStatus: user.ApprovalStatus, IsActive: user.IsActive},
+		User:    UserToUserDTO(user),
 		Contact: contact,
 		OTP:     otp,
 	}
@@ -93,13 +81,13 @@ func Register(c *fiber.Ctx) error {
 }
 
 func VerifyOTP(c *fiber.Ctx) error {
-	req := new(VerifyOTPRequest)
+	req := new(requests.VerifyOTPRequest)
 	if err := c.BodyParser(req); err != nil {
 		return response.Error(c, 422, "Invalid request", nil)
 	}
 
-	if req.Email == "" || req.OTPCode == "" {
-		return response.Error(c, 422, "Email and OTP code are required", nil)
+	if err := helpers.ValidateVerifyOTPRequest(req); err != nil {
+		return response.Error(c, 422, err.Error(), nil)
 	}
 
 	err := service.VerifyOTP(req.Email, req.OTPCode)
@@ -111,16 +99,15 @@ func VerifyOTP(c *fiber.Ctx) error {
 }
 
 func LoginGoogle(c *fiber.Ctx) error {
-	req := new(GoogleLoginRequest)
+	req := new(requests.GoogleLoginRequest)
 	if err := c.BodyParser(req); err != nil {
 		return response.Error(c, 422, "Invalid request", nil)
 	}
 
-	if req.IDToken == "" {
-		return response.Error(c, 422, "ID token is required", nil)
+	if err := helpers.ValidateGoogleLoginRequest(req); err != nil {
+		return response.Error(c, 422, err.Error(), nil)
 	}
 
-	// Verify Google ID token
 	payload, err := idtoken.Validate(context.Background(), req.IDToken, os.Getenv("GOOGLE_CLIENT_ID"))
 	if err != nil {
 		log.Printf("❌ Google token verification failed: %v", err)
@@ -155,23 +142,18 @@ func LoginGoogle(c *fiber.Ctx) error {
 		})
 	}
 
-	data := LoginDataResponse{User: *profile, Token: token}
+	data := LoginUserResponseToLoginDataResponse(profile, token)
 	return response.Success(c, "Google Login berhasil", data)
 }
 
 func SubmitGoogleUsername(c *fiber.Ctx) error {
-	type Request struct {
-		UserID   int64  `json:"user_id"`
-		Username string `json:"username"`
-	}
-
-	req := new(Request)
+	req := new(requests.SubmitGoogleUsernameRequest)
 	if err := c.BodyParser(req); err != nil {
 		return response.Error(c, 422, "Invalid request", nil)
 	}
 
-	if req.UserID == 0 || req.Username == "" {
-		return response.Error(c, 422, "User ID and Username are required", nil)
+	if err := helpers.ValidateSubmitGoogleUsername(req); err != nil {
+		return response.Error(c, 422, err.Error(), nil)
 	}
 
 	err := service.SubmitGoogleUsername(req.UserID, req.Username)
@@ -189,17 +171,7 @@ func GetPendingApprovals(c *fiber.Ctx) error {
 		return response.Error(c, 500, err.Error(), nil)
 	}
 
-	var dtos []UserDTO
-	for _, u := range users {
-		dtos = append(dtos, UserDTO{
-			ID:             u.ID,
-			Email:          u.Email,
-			Username:       u.Username,
-			ApprovalStatus: u.ApprovalStatus,
-			IsActive:       u.IsActive,
-		})
-	}
-
+	dtos := UsersToUserDTOs(users)
 	return response.Success(c, "List pending approvals", dtos)
 }
 
@@ -231,4 +203,19 @@ func RejectUser(c *fiber.Ctx) error {
 	}
 
 	return response.Success(c, "User rejected successfully.", nil)
+}
+
+// Logout logs out the user
+func Logout(c *fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(int64)
+	if !ok {
+		return response.Error(c, 400, "Invalid user ID", nil)
+	}
+
+	err := service.Logout(userID)
+	if err != nil {
+		return response.Error(c, 500, err.Error(), nil)
+	}
+
+	return response.Success(c, "Logout berhasil", nil)
 }

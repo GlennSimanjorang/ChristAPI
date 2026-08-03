@@ -31,8 +31,10 @@ func GenerateToken(userID int) (string, error) {
 		return "", errors.New("JWT_SECRET is not configured")
 	}
 
+	now := time.Now().Unix()
 	claims := jwt.MapClaims{
 		"user_id": userID,
+		"iat":     now,
 		"exp":     time.Now().Add(time.Hour * 24).Unix(),
 	}
 

@@ -2,7 +2,6 @@ package routes
 
 import (
 	"christ-api/internal/auth"
-	"christ-api/internal/bible"
 	"christ-api/internal/contacts"
 	"christ-api/internal/middleware"
 	"christ-api/internal/news"
@@ -31,6 +30,8 @@ func Setup(app *fiber.App) {
 			"message": "you are logged in",
 		})
 	})
+
+	protected.Post("/logout", auth.Logout)
 
 	// admin approvals
 	protected.Get("/admin/approvals", auth.GetPendingApprovals)
@@ -64,11 +65,4 @@ func Setup(app *fiber.App) {
 	protected.Post("/news", news.CreateNews)
 	protected.Patch("/news/:uuid", news.UpdateNews)
 	protected.Delete("/news/:uuid", news.DeleteNews)
-
-	// bible
-	protected.Get("/books", bible.ListSurat)
-	protected.Get("/books/:id/chapters", bible.ListPasal)
-	protected.Get("/books/:book_id/chapters/:id", bible.GetPasalDetail)
-	protected.Get("/chapters/:id/verses", bible.ListAyat)
-	protected.Get("/verses/:id", bible.GetAyat)
 }
