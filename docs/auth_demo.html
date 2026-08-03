@@ -146,35 +146,69 @@
     <div class="container">
         <!-- Scenario A: Google Sign-In -->
         <div class="card">
-            <h2>Skenario A: Google Sign-In (Real OAuth)</h2>
-            <div id="g_id_onload"
-                 data-client_id="19085886514-lgfr9ce97us82dvoa7qdfp4go6ejlavt.apps.googleusercontent.com"
-                 data-callback="handleGoogleResponse">
-            </div>
-            <div class="g_id_signin" data-type="standard"></div>
+            <h2>Skenario A: Google Sign-In</h2>
+            <p style="font-size: 12px; color: #7f8c8d; margin-bottom: 15px;">Login menggunakan akun Google Anda. Pada first login, Anda diminta mengisi profile lengkap.</p>
 
-            <div id="google-username-section" style="margin-top: 20px; display: none; border-top: 1px solid #eee; padding-top: 15px;">
-                <h3>2. Complete Profile (First time Google Login)</h3>
-                <p style="font-size: 12px; color: #7f8c8d;">Please complete your profile information to proceed.</p>
-                <input type="hidden" id="google-user-id">
-                <div class="form-group">
-                    <label>Username *</label>
-                    <input type="text" id="google-username" placeholder="johndoe">
+            <div style="text-align: center; padding: 20px; border: 1px solid #ecf0f1; border-radius: 8px; background-color: #f9f9f9;">
+                <div id="g_id_onload"
+                     data-client_id="19085886514-lgfr9ce97us82dvoa7qdfp4go6ejlavt.apps.googleusercontent.com"
+                     data-callback="handleGoogleResponse">
                 </div>
+                <div class="g_id_signin" data-type="standard"></div>
+            </div>
+
+            <div id="google-status" style="display: none; margin-top: 15px; padding: 12px; border-radius: 4px; text-align: center; font-weight: bold;">
+                <span id="google-status-text"></span>
+            </div>
+
+            <div id="google-username-section" style="margin-top: 20px; display: none; border-top: 1px solid #eee; padding-top: 15px; animation: slideDown 0.3s ease;">
+                <h3 style="color: #27ae60; margin-bottom: 10px;">✓ Profile Completion</h3>
+                <p style="font-size: 12px; color: #7f8c8d; margin-bottom: 15px;">Lengkapi informasi profile Anda untuk melanjutkan proses registrasi.</p>
+                <input type="hidden" id="google-user-id">
+
+                <div class="form-group">
+                    <label>Username * <span style="color: #7f8c8d; font-size: 12px;">(e.g., john_doe)</span></label>
+                    <input type="text" id="google-username" placeholder="johndoe" style="border: 1px solid #bdc3c7;">
+                </div>
+
                 <div class="form-group">
                     <label>Nama Lengkap *</label>
-                    <input type="text" id="google-fullname" placeholder="John Doe">
+                    <input type="text" id="google-fullname" placeholder="John Doe" style="border: 1px solid #bdc3c7;">
                 </div>
+
                 <div class="form-group">
-                    <label>Nomor Telepon</label>
-                    <input type="tel" id="google-phone" placeholder="+62812345678">
+                    <label>Nomor Telepon <span style="color: #7f8c8d; font-size: 12px;">(optional)</span></label>
+                    <input type="tel" id="google-phone" placeholder="+62812345678" style="border: 1px solid #bdc3c7;">
                 </div>
+
                 <div class="form-group">
-                    <label>Alamat</label>
-                    <input type="text" id="google-address" placeholder="Jl. Contoh No. 123">
+                    <label>Alamat <span style="color: #7f8c8d; font-size: 12px;">(optional)</span></label>
+                    <input type="text" id="google-address" placeholder="Jl. Contoh No. 123" style="border: 1px solid #bdc3c7;">
                 </div>
-                <button onclick="submitGoogleUsername()">Submit Profile</button>
+
+                <div style="display: flex; gap: 10px;">
+                    <button onclick="submitGoogleUsername()" style="flex: 1; background-color: #27ae60;">Submit Profile</button>
+                    <button onclick="resetGoogleForm()" class="secondary" style="flex: 1;">Cancel</button>
+                </div>
             </div>
+
+            <div id="google-success" style="display: none; margin-top: 15px; padding: 15px; background-color: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; text-align: center;">
+                <h4 style="color: #155724; margin: 0;">✓ Login Berhasil!</h4>
+                <p style="color: #155724; margin: 5px 0; font-size: 12px;">Profile Anda telah tersimpan. Menunggu approval admin...</p>
+            </div>
+
+            <style>
+                @keyframes slideDown {
+                    from {
+                        opacity: 0;
+                        transform: translateY(-10px);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
+                }
+            </style>
         </div>
 
         <!-- Scenario B: Credentials (Email/Password) -->
@@ -233,6 +267,36 @@
         </div>
     </div>
 
+    <!-- Roles Management -->
+    <div class="card full-width">
+        <h2>Role Management (Admin Only)</h2>
+        <p>Manage application roles for controlling user permissions.</p>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px;">
+            <button class="admin-btn" onclick="listRoles()">List All Roles</button>
+            <div style="flex: 1; min-width: 200px;">
+                <input type="text" id="new-role-name" placeholder="Role name" style="width: 100%; padding: 8px; margin-bottom: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+                <textarea id="new-role-desc" placeholder="Role description (optional)" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; height: 60px;"></textarea>
+            </div>
+            <button class="admin-btn" onclick="createRole()" style="align-self: flex-end;">Create Role</button>
+        </div>
+        <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+            <thead>
+                <tr style="background-color: #dfe6e9; text-align: left;">
+                    <th style="padding: 8px;">ID</th>
+                    <th style="padding: 8px;">Name</th>
+                    <th style="padding: 8px;">Description</th>
+                    <th style="padding: 8px;">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="roles-table-body">
+                <tr>
+                    <td colspan="4" style="padding: 10px; text-align: center; color: #7f8c8d;">Klik "List All Roles" untuk melihat daftar roles.</td>
+                </tr>
+            </tbody>
+        </table>
+        <div id="roles-log" class="log-box" style="margin-top: 15px; height: 100px;">Roles operations log will appear here...</div>
+    </div>
+
     <!-- Test Scenarios -->
     <div class="card full-width">
         <h2>Test Scenarios & Edge Cases</h2>
@@ -246,6 +310,18 @@
             <button onclick="testTokenInfo()" class="secondary">Decode Token Info (iat/exp)</button>
         </div>
         <div id="test-log" class="log-box" style="margin-top: 15px;">Test results will appear here...</div>
+    </div>
+
+    <!-- Logout Modal -->
+    <div id="logout-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
+        <div style="background: white; padding: 30px; border-radius: 8px; text-align: center; max-width: 400px;">
+            <h2 style="color: #27ae60; margin-bottom: 10px;">✓ Logout Berhasil</h2>
+            <p style="color: #7f8c8d; margin-bottom: 20px;">Token telah di-invalidate. Anda akan dialihkan ke halaman login...</p>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button onclick="dismissLogoutModal()" class="secondary">Tutup</button>
+                <button onclick="refreshPage()" style="background-color: #27ae60;">Refresh Sekarang</button>
+            </div>
+        </div>
     </div>
 
     <!-- Output Logs -->
@@ -464,12 +540,23 @@
                 if (result.success) {
                     log("✅ Profile disubmit. Akun sekarang berada di antrean approval admin.");
                     document.getElementById("google-username-section").style.display = "none";
+                    document.getElementById("google-success").style.display = "block";
                 } else {
                     alert("Gagal submit profile: " + result.message);
                 }
             } catch (error) {
                 log("Error Submit Profile", error);
             }
+        }
+
+        function resetGoogleForm() {
+            document.getElementById("google-username").value = "";
+            document.getElementById("google-fullname").value = "";
+            document.getElementById("google-phone").value = "";
+            document.getElementById("google-address").value = "";
+            document.getElementById("google-username-section").style.display = "none";
+            document.getElementById("google-success").style.display = "none";
+            log("Google form reset.");
         }
 
         // 2. Email & Password Flow
@@ -845,8 +932,158 @@
                 }
 
                 testLog.innerText += `\nUser ID: ${decoded.user_id}\n`;
+                if (decoded.role_id) {
+                    testLog.innerText += `Role ID: ${decoded.role_id}\n`;
+                }
             } catch (e) {
                 testLog.innerText = `Error decoding token: ${e}`;
+            }
+        }
+
+        // Roles Management Functions
+        function rolesLog(message, data = null) {
+            const logBox = document.getElementById("roles-log");
+            let text = `[${new Date().toLocaleTimeString()}] ${message}\n`;
+            if (data) {
+                text += JSON.stringify(data, null, 2) + "\n";
+            }
+            logBox.innerText = text + logBox.innerText;
+        }
+
+        async function listRoles() {
+            try {
+                rolesLog("Fetching roles list...");
+                const response = await fetch(`${API_URL}/admin/roles`, {
+                    method: "GET",
+                    headers: {
+                        "Authorization": jwtToken ? `Bearer ${jwtToken}` : ""
+                    }
+                });
+
+                const result = await response.json();
+                rolesLog("List Roles Response", result);
+
+                if (result.success) {
+                    const tbody = document.getElementById("roles-table-body");
+                    tbody.innerHTML = "";
+
+                    if (!result.data || result.data.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="4" style="padding: 10px; text-align: center; color: #7f8c8d;">Tidak ada roles saat ini.</td></tr>`;
+                        return;
+                    }
+
+                    result.data.forEach(role => {
+                        const tr = document.createElement("tr");
+                        tr.style.borderBottom = "1px solid #eee";
+                        tr.innerHTML = `
+                            <td style="padding: 8px;">${role.id}</td>
+                            <td style="padding: 8px;">${role.name}</td>
+                            <td style="padding: 8px;">${role.description || '-'}</td>
+                            <td style="padding: 8px;">
+                                <button onclick="editRole(${role.id}, '${role.name}')" class="secondary" style="padding: 5px 10px;">Edit</button>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                } else {
+                    alert("Gagal mengambil roles: " + result.message);
+                }
+            } catch (error) {
+                rolesLog("Error List Roles", error);
+            }
+        }
+
+        async function createRole() {
+            const name = document.getElementById("new-role-name").value;
+            const description = document.getElementById("new-role-desc").value;
+
+            if (!name) {
+                alert("Role name wajib diisi!");
+                return;
+            }
+
+            try {
+                rolesLog(`Creating role: ${name}...`);
+                const response = await fetch(`${API_URL}/admin/roles`, {
+                    method: "POST",
+                    headers: {
+                        "Authorization": jwtToken ? `Bearer ${jwtToken}` : "",
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        name: name,
+                        description: description || null
+                    })
+                });
+
+                const result = await response.json();
+                rolesLog("Create Role Response", result);
+
+                if (result.success) {
+                    alert("Role berhasil dibuat!");
+                    document.getElementById("new-role-name").value = "";
+                    document.getElementById("new-role-desc").value = "";
+                    listRoles();
+                } else {
+                    alert("Gagal membuat role: " + result.message);
+                }
+            } catch (error) {
+                rolesLog("Error Create Role", error);
+            }
+        }
+
+        function editRole(id, name) {
+            const newName = prompt(`Edit role name (current: ${name})`);
+            if (!newName) return;
+
+            // TODO: Implement update role endpoint
+            alert("Update role functionality coming soon");
+        }
+
+        // Logout Modal Functions
+        function dismissLogoutModal() {
+            document.getElementById("logout-modal").style.display = "none";
+        }
+
+        function refreshPage() {
+            window.location.reload();
+        }
+
+        // Update doLogout to show modal
+        async function doLogout() {
+            if (!jwtToken) {
+                alert("Tidak ada token aktif!");
+                return;
+            }
+
+            try {
+                log("Logging out...");
+                const res = await fetch(`${API_URL}/logout`, {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${jwtToken}`,
+                        "Content-Type": "application/json"
+                    }
+                });
+                const result = await res.json();
+                log("Logout Response", result);
+
+                if (result.success) {
+                    log("✅ Logout berhasil! Token telah di-invalidate.");
+                    clearToken();
+
+                    // Show logout success modal
+                    document.getElementById("logout-modal").style.display = "flex";
+
+                    // Auto-refresh after 3 seconds
+                    setTimeout(() => {
+                        refreshPage();
+                    }, 3000);
+                } else {
+                    alert("Logout gagal: " + result.message);
+                }
+            } catch (e) {
+                log("Error Logout: " + e.toString());
             }
         }
     </script>
