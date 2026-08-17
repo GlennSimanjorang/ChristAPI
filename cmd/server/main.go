@@ -35,7 +35,12 @@ func main() {
 	role.InitService(&role.RoleRepository{DB: database.DB})
 
 	app := fiber.New()
-	app.Use(cors.New())
+	app.Use(cors.New(cors.Config{
+		AllowOrigins:     "http://localhost:5173",
+		AllowMethods:     "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
+		AllowCredentials: true,
+	}))
 	app.Use(middleware.CustomLogger)
 
 	// Serve static files from docs directory
